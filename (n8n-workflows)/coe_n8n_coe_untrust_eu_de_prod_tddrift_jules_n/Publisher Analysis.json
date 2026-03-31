@@ -1,0 +1,178 @@
+{
+  "id": "905kssNEKd4G2oDt",
+  "name": "Publisher Analysis",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {
+          "responseMode": "responseNodes"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -432,
+        -128
+      ],
+      "name": "When chat message received",
+      "webhookId": "REPLACE_WITH_YOUR_WEBHOOK_ID"
+    },
+    {
+      "parameters": {
+        "resource": "worksheet",
+        "operation": "readRows",
+        "workbook": {
+          "__rl": true,
+          "value": "016IEPKXWPBQOJWKI2I5BK2AQMU5GZZI2D",
+          "mode": "list",
+          "cachedResultName": "idealo_es",
+          "cachedResultUrl": "https://tradedoublergroup-my.sharepoint.com/personal/harry_collins_tradedoubler_com/_layouts/15/Doc.aspx?sourcedoc=%7B9B1C0CCF-1A29-4247-AD02-0CA74D9CA343%7D&file=idealo_es.xlsx&action=default&mobileredirect=true&DefaultItemOpen=1"
+        },
+        "worksheet": {
+          "__rl": true,
+          "value": "REPLACE_WITH_WORKSHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Worksheet",
+          "cachedResultUrl": "REPLACE_WITH_SHEET_URL"
+        },
+        "options": {}
+      },
+      "name": "Excel: Read Publisher Rows",
+      "type": "n8n-nodes-base.microsoftExcel",
+      "position": [
+        -192,
+        -128
+      ],
+      "typeVersion": 2,
+      "credentials": {
+        "microsoftExcelOAuth2Api": {
+          "id": "E3yG3eQSTfJEDfeA",
+          "name": "Microsoft Excel account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "function safeNum(x) {\n  const n = Number(x);\n  return Number.isFinite(n) ? n : 0;\n}\n\nfunction pct(a, b) {\n  if (!b) return null;\n  return (a / b) * 100;\n}\n\nfunction fmtMoney(x) {\n  if (x === null || x === undefined || Number.isNaN(x)) return 'N/A';\n  return `£${x.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;\n}\n\nfunction fmtPct(x) {\n  if (x === null || x === undefined || Number.isNaN(x)) return 'N/A';\n  return `${x.toFixed(2)}%`;\n}\n\n// QBR-aligned (POC) categorisation: CUG, Cashback, Discount, CSS, Subnetworks, Other\nfunction inferPublisherType(nameRaw) {\n  const name = String(nameRaw || '').toLowerCase();\n\n  // Closed User Groups (CUG)\n  if (/(blue light|defence|teachers|carers|charity worker|health service|totum|benifex|telus|perk|benefit|studentbeans|joinnetwork|perksatwork|nextjump)/.test(name))\n    return 'Closed User Groups';\n\n  // Cashback\n  if (/(cashback|quidco|topcashback|easyfundraising|swagbucks|reward gateway|rakuten|give as you live|vc loyalty|wanteed)/.test(name))\n    return 'Cashback';\n\n  // Discount & Voucher Sites\n  if (/(voucher|vouchers|codes|coupon|deal|deals|discount|hotukdeals|savoo|wowcher|bravovoucher|latest deals|vouchercloud|purpl|purplee|vcuk|atolls|mvc)/.test(name))\n    return 'Discount & Voucher Sites';\n\n  // CSS\n  if (/(css|google shopping|comparison|compare|idealo|redbrain|shoparize|shopia|expandeo|priceplanet|delupe|top-css|zoliro)/.test(name))\n    return 'CSS';\n\n  // Subnetworks\n  if (/(skimlinks|soreto|subnetwork|network|linkhaitao|affilizz|convert|digidip|takeads|linkbux|brandreward|ad pump|shoplooks)/.test(name))\n    return 'Subnetworks';\n\n  return 'Other';\n}\n\nconst rows = $input.all().map(i => i.json);\n\nconst enriched = rows.map(d => {\n  const impressions = safeNum(d.impressions);\n  const clicks = safeNum(d.clicks);\n  const sales = safeNum(d.sales);\n  const orderValue = safeNum(d.orderValue);\n  const pubComm = safeNum(d.publisherCommission);\n  const tdComm = safeNum(d.tdCommission);\n\n  return {\n    sourceId: d.sourceId ?? '',\n    sourceName: d.sourceName ?? 'Unknown',\n    publisherType: inferPublisherType(d.sourceName),\n\n    impressions,\n    clicks,\n    sales,\n    orderValue,\n\n    ctr: impressions ? pct(clicks, impressions) : null,\n    cvr: clicks ? pct(sales, clicks) : null,\n    epc: clicks ? (orderValue / clicks) : null,\n    aov: sales ? (orderValue / sales) : null,\n    takeRate: orderValue ? pct(pubComm + tdComm, orderValue) : null,\n\n    pubComm,\n    tdComm\n  };\n});\n\nconst byType = new Map();\nfor (const r of enriched) {\n  if (!byType.has(r.publisherType)) byType.set(r.publisherType, []);\n  byType.get(r.publisherType).push(r);\n}\n\nfunction topN(arr, n, key) {\n  return [...arr].sort((a,b) => (b[key] ?? -Infinity) - (a[key] ?? -Infinity)).slice(0, n);\n}\n\nfunction buildWatchlist(pubs) {\n  const sorted = [...pubs].sort((a,b) => b.clicks - a.clicks);\n  const cutoff = sorted[Math.min(9, sorted.length - 1)]?.clicks ?? 0; // ~top-10 clicks cutoff\n\n  return pubs\n    .filter(p => p.clicks >= cutoff && p.clicks > 0)\n    .sort((a,b) => (a.cvr ?? Infinity) - (b.cvr ?? Infinity))\n    .slice(0, 8);\n}\n\n// Control output order to match QBR chapters\nconst orderedTypes = [\n  'Closed User Groups',\n  'Cashback',\n  'Discount & Voucher Sites',\n  'CSS',\n  'Subnetworks',\n  'Other'\n];\n\nconst typeSummaries = [];\nconst sectionsForAI = [];\n\nfor (const type of orderedTypes) {\n  const pubs = byType.get(type) || [];\n  if (!pubs.length) continue;\n\n  const totals = pubs.reduce((a,r) => {\n    a.impressions += r.impressions;\n    a.clicks += r.clicks;\n    a.sales += r.sales;\n    a.orderValue += r.orderValue;\n    a.pubComm += r.pubComm;\n    a.tdComm += r.tdComm;\n    return a;\n  }, { impressions:0, clicks:0, sales:0, orderValue:0, pubComm:0, tdComm:0 });\n\n  const overall = {\n    ctr: totals.impressions ? pct(totals.clicks, totals.impressions) : null,\n    cvr: totals.clicks ? pct(totals.sales, totals.clicks) : null,\n    epc: totals.clicks ? (totals.orderValue / totals.clicks) : null,\n    aov: totals.sales ? (totals.orderValue / totals.sales) : null,\n    takeRate: totals.orderValue ? pct(totals.pubComm + totals.tdComm, totals.orderValue) : null\n  };\n\n  const topByOV = topN(pubs, 12, 'orderValue');\n  const watchlist = buildWatchlist(pubs);\n\n  typeSummaries.push({ type, totals, overall, topByOV, watchlist });\n\n  const lines = [];\n  lines.push(`Performance by Publisher Type — ${type}`);\n  lines.push(`Totals: OV ${fmtMoney(totals.orderValue)} | Sales ${totals.sales.toLocaleString()} | Clicks ${totals.clicks.toLocaleString()}`);\n  lines.push(`Efficiency: EPC ${fmtMoney(overall.epc)} | CVR ${fmtPct(overall.cvr)} | AOV ${fmtMoney(overall.aov)} | Take ${fmtPct(overall.takeRate)}`);\n\n  if (!totals.impressions) {\n    lines.push('Data note: impressions missing/partial → CTR not reliable.');\n  } else {\n    lines.push(`CTR: ${fmtPct(overall.ctr)}`);\n  }\n\n  lines.push('');\n  lines.push('Top publishers by Order Value:');\n  topByOV.forEach((r, i) => {\n    lines.push(`${i+1}. ${r.sourceName} (ID:${r.sourceId}) — OV ${fmtMoney(r.orderValue)} | Sales ${r.sales} | Clicks ${r.clicks} | EPC ${fmtMoney(r.epc)} | CVR ${fmtPct(r.cvr)}`);\n  });\n\n  if (watchlist.length) {\n    lines.push('');\n    lines.push('High-click / low-efficiency watchlist:');\n    watchlist.forEach((r, i) => {\n      lines.push(`${i+1}. ${r.sourceName} — Clicks ${r.clicks} | OV ${fmtMoney(r.orderValue)} | EPC ${fmtMoney(r.epc)} | CVR ${fmtPct(r.cvr)}`);\n    });\n  }\n\n  sectionsForAI.push(lines.join('\\n'));\n}\n\nreturn [{\n  json: {\n    disclaimer: 'Publisher types are inferred heuristically from publisher names for proof-of-concept only.',\n    typeSummaries,\n    dataForAI: sectionsForAI.join('\\n\\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\\n\\n')\n  }\n}];"
+      },
+      "name": "Process: Categorise + Build QBR Pack",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        48,
+        -128
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{$json.dataForAI}}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nYou are preparing a QBR-style analysis of performance by publisher type.\nThis is SINGLE PERIOD analysis (not YoY). Use the sections provided.\n\nFor EACH publisher type section, provide:\n\n1) EXEC SUMMARY (1–2 sentences)\n- What drove OV and what is the main risk/opportunity\n\n2) KEY INSIGHTS (3 bullets)\n- Concentration (dependency on top partners)\n- Efficiency (CVR/EPC/AOV/take rate) vs expectations\n- Notable publishers (best and worst)\n\n3) ACTIONS (3–5 bullets)\n- Tactical actions naming specific publishers where possible (placements, CPA/commission, tenancy, promo cadence, tracking/product feed, suppression/cleanup)\n- Keep actions realistic and QBR-ready\n\nNotes:\n- Publisher type classification is heuristic (POC).\n- If impressions are missing, avoid strong CTR conclusions.\n\nBe concise, structured, and actionable.",
+        "options": {
+          "systemMessage": "You are an expert affiliate marketing analyst at Tradedoubler. You produce QBR-ready, category-by-category insights and tactical actions. You focus on OV, sales, clicks, CVR, EPC, AOV, take rate, partner concentration, and practical optimisations."
+        }
+      },
+      "name": "AI Agent: QBR Publisher-Type Analysis",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        288,
+        -128
+      ]
+    },
+    {
+      "parameters": {
+        "model": "gpt-4o",
+        "options": {
+          "maxTokens": 2500,
+          "temperature": 0.3
+        }
+      },
+      "name": "OpenAI GPT-4o",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1,
+      "position": [
+        288,
+        80
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "L4g2aVcKF4eab59w",
+          "name": "OpenAi account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "message": "={{$json.output}}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chat",
+      "typeVersion": 1,
+      "position": [
+        608,
+        -128
+      ],
+      "name": "Respond to Chat"
+    }
+  ],
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "Excel: Read Publisher Rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Excel: Read Publisher Rows": {
+      "main": [
+        [
+          {
+            "node": "Process: Categorise + Build QBR Pack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process: Categorise + Build QBR Pack": {
+      "main": [
+        [
+          {
+            "node": "AI Agent: QBR Publisher-Type Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent: QBR Publisher-Type Analysis": {
+      "main": [
+        [
+          {
+            "node": "Respond to Chat",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI GPT-4o": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent: QBR Publisher-Type Analysis",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {},
+  "tags": [],
+  "active": false
+}

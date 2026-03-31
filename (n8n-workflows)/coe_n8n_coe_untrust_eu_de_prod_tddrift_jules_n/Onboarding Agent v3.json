@@ -1,0 +1,1482 @@
+{
+  "id": "ieT2uBkYzWfTGHki",
+  "name": "Onboarding Agent v3",
+  "nodes": [
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4.1-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4.1-mini"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -1616,
+        1104
+      ],
+      "name": "OpenAI Chat Model1",
+      "credentials": {
+        "openAiApi": {
+          "id": "L4g2aVcKF4eab59w",
+          "name": "OpenAi account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "Searches the Tradedoubler technical knowledge base.\n\nUSE THIS TOOL for any question involving:\n- \"why\", \"how\", \"what is\", \"what if\", \"can you explain\"\n- tracking implementation (landing/confirmation scripts)\n- branded tracking (visit. / statics. domains, first-party cookies)\n- DNS setup / CNAME configuration\n- GTM integration, dataLayer, tag sequencing\n- testing and troubleshooting\n- product feeds (XML/CSV), feed rules, product attributes\n- consent management & GDPR\n- Safari ITP, TDUID, cookies, trsdk, tdconv\n\nHOW TO USE RESULTS:\n1. Prefer chunks where metadata.embedding_role = \"content\".\n2. Use metadata.embedding_role = \"title\" and \"keywords\" to improve relevance\n   when the user's query is ambiguous or broad.\n3. Use metadata.semantic_category to focus retrieval on the correct topic:\n   - dns-setup\n   - branded-tracking\n   - conversion-tracking\n   - gtm-implementation\n   - product-feed\n   - compliance\n   - testing\n4. Use metadata.search_text to match intent, terminology, and synonyms.\n5. Base ALL technical answers STRICTLY on the retrieved chunks.\n6. If the retrieved documents do not contain the required information,\n   clearly state that the documentation does not cover it.\n\nYou MUST call this tool before answering any technical question.\nYou MUST ground your answers in the retrieved documentation.",
+        "tableName": {
+          "__rl": true,
+          "value": "Onboarding Agent",
+          "mode": "list",
+          "cachedResultName": "Onboarding Agent"
+        },
+        "topK": 6,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreSupabase",
+      "typeVersion": 1.3,
+      "position": [
+        -1280,
+        1072
+      ],
+      "name": "Supabase Vector Store1",
+      "credentials": {
+        "supabaseApi": {
+          "id": "XCkBDekWHAd2Pg1e",
+          "name": "Supabase 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -1424,
+        1264
+      ],
+      "name": "Embeddings OpenAI1",
+      "credentials": {
+        "openAiApi": {
+          "id": "L4g2aVcKF4eab59w",
+          "name": "OpenAi account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// FORCE SINGLE ITEM - second filter\nconst allItems = $input.all();\nconsole.log(\"=== FORCE SINGLE ITEM (After Process) ===\");\nconsole.log(\"Items received:\", allItems.length);\n\nif (allItems.length > 1) {\n  console.log(\"⚠️ WARNING: Received\", allItems.length, \"items! Should be 1!\");\n}\n\n// Return ONLY the last item\nreturn { json: $input.last().json };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -736,
+        400
+      ],
+      "name": "force single item1"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{\n  {\n    response: $json.response,\n    onboardingData: $json.onboardingData,\n    checklist: $json.checklist,\n    isComplete: $json.isComplete\n  }\n}}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, OPTIONS"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type, Authorization"
+              }
+            ]
+          }
+        }
+      },
+      "name": "Respond to Webhook1",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        832,
+        976
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const processData = $input.item.json;\nconst prepareData = $('Prepare Data2').item.json;\n\nconst conversationHistory = prepareData.messages || [];\nconst userMessage = prepareData.userMessage || \"\";\nconst aiResponse = processData.response || \"\";\nconst checklist = processData.checklist || {};\nconst onboardingData = processData.onboardingData || {};\n\nconsole.log(\"=== DETECTING LEARNING MOMENTS ===\");\n\nconst learningMoments = [];\nconst userLower = userMessage.toLowerCase();\nconst aiLower = aiResponse.toLowerCase();\n\n// 1. BRANDED TRACKING EXPLAINED SUCCESSFULLY\nif (checklist.brandedTracking && onboardingData.rootDomain) {\n  const previousData = $('Prepare Data2').item.json.onboardingData || {};\n  const isFirstTime = !previousData.rootDomain && onboardingData.rootDomain;\n  \n  if (isFirstTime) {\n    learningMoments.push({\n      category: 'branded_tracking_explanation',\n      step: 'brandedTracking',\n      user_context: userMessage,\n      agent_response: aiResponse,\n      outcome: 'client_provided_domain',\n      reason: 'Client successfully understood and provided their domain',\n      conversation_excerpt: conversationHistory.slice(-4).filter(m => m.role !== 'system')\n    });\n    console.log(\"✅ Detected: Successful branded tracking explanation\");\n  }\n}\n\n// 2. DNS/CNAME CONFUSION RESOLVED\nconst dnsConfusionIndicators = [\n  'confused', 'don\\'t understand', 'not sure how', 'what is cname',\n  'how do i', 'never done this', 'can you explain'\n];\nconst dnsTopics = ['cname', 'dns', 'record', 'subdomain', 'domain'];\n\nconst userShowsConfusion = dnsConfusionIndicators.some(phrase => userLower.includes(phrase));\nconst aboutDNS = dnsTopics.some(topic => userLower.includes(topic) || aiLower.includes(topic));\n\nif (userShowsConfusion && aboutDNS && aiResponse.length > 100) {\n  learningMoments.push({\n    category: 'dns_confusion_resolved',\n    step: 'brandedTracking',\n    user_context: userMessage,\n    agent_response: aiResponse,\n    outcome: 'confusion_addressed',\n    reason: 'Agent provided helpful explanation to confused client',\n    conversation_excerpt: conversationHistory.slice(-3).filter(m => m.role !== 'system')\n  });\n  console.log(\"✅ Detected: DNS confusion resolved\");\n}\n\n// 3. GTM IMPLEMENTATION CLARITY\nconst gtmTopics = ['gtm', 'google tag manager', 'tag', 'preview'];\nconst aboutGTM = gtmTopics.some(topic => userLower.includes(topic) || aiLower.includes(topic));\nconst agentClarifiedPreview = aiLower.includes('preview mode') && \n                              (aiLower.includes('cannot') || aiLower.includes('live site'));\n\nif (aboutGTM && agentClarifiedPreview) {\n  learningMoments.push({\n    category: 'gtm_implementation_guidance',\n    step: 'trackingScripts',\n    user_context: userMessage,\n    agent_response: aiResponse,\n    outcome: 'gtm_clarification_provided',\n    reason: 'Agent clarified GTM preview mode limitations',\n    conversation_excerpt: conversationHistory.slice(-3).filter(m => m.role !== 'system')\n  });\n  console.log(\"✅ Detected: GTM implementation clarity provided\");\n}\n\n// 4. PRODUCT FEED SUBMISSION\nif (processData.triggerProductFeedNotification && onboardingData.productFeedUrl) {\n  learningMoments.push({\n    category: 'product_feed_submission',\n    step: 'productFeed',\n    user_context: userMessage,\n    agent_response: aiResponse,\n    outcome: 'feed_url_provided',\n    reason: 'Client successfully provided product feed URL',\n    conversation_excerpt: conversationHistory.slice(-2).filter(m => m.role !== 'system')\n  });\n  console.log(\"✅ Detected: Product feed submission\");\n}\n\n// 5. DELAY HANDLED GRACEFULLY\nif (processData.followUp !== null) {\n  learningMoments.push({\n    category: 'delay_handling',\n    step: 'general',\n    user_context: userMessage,\n    agent_response: aiResponse,\n    outcome: 'follow_up_scheduled',\n    reason: 'Agent gracefully handled client delay request',\n    conversation_excerpt: conversationHistory.slice(-2).filter(m => m.role !== 'system')\n  });\n  console.log(\"✅ Detected: Graceful delay handling\");\n}\n\n// 6. TRACKING TEST COMPLETION\nif (processData.triggerTestSaleNotification) {\n  learningMoments.push({\n    category: 'tracking_test_completion',\n    step: 'trackingScripts',\n    user_context: userMessage,\n    agent_response: aiResponse,\n    outcome: 'test_completed',\n    reason: 'Client successfully completed tracking test',\n    conversation_excerpt: conversationHistory.slice(-3).filter(m => m.role !== 'system')\n  });\n  console.log(\"✅ Detected: Tracking test completion\");\n}\n\n// 7. IP ADDRESSES PROVIDED\nif (onboardingData.officeIPs && onboardingData.officeIPs.length > 0) {\n  const previousIPs = $('Prepare Data2').item.json.onboardingData?.officeIPs || [];\n  const newIPs = onboardingData.officeIPs.filter(ip => !previousIPs.includes(ip));\n  \n  if (newIPs.length > 0) {\n    learningMoments.push({\n      category: 'ip_collection',\n      step: 'ipAddresses',\n      user_context: userMessage,\n      agent_response: aiResponse,\n      outcome: 'ips_provided',\n      reason: 'Client provided office IP addresses',\n      conversation_excerpt: conversationHistory.slice(-2).filter(m => m.role !== 'system')\n    });\n    console.log(\"✅ Detected: IP addresses provided\");\n  }\n}\n\n// 8. CLIENT SATISFACTION\nconst satisfactionIndicators = [\n  // Strong positive\n  'perfect', 'awesome', 'amazing', 'excellent', 'great',\n  'fantastic', 'brilliant', 'ideal', 'love it',\n  'very helpful', 'super helpful', 'this helps a lot',\n\n  // Gratitude\n  'thank you', 'thanks', 'thanks a lot', 'thank you so much',\n  'appreciate it', 'much appreciated', 'cheers',\n\n  // Understanding / clarity\n  'that makes sense', 'makes sense', 'got it', 'gotcha',\n  'understood', 'clear now', 'all clear', 'i see', 'now i see',\n\n  // Acceptance / acknowledgment\n  'ok', 'okay', 'alright', 'sounds good', 'works for me', 'cool',\n\n  // Closure\n  'that answers my question', 'that covers it',\n  'that’s all i needed', 'all set', 'i’m good now'\n];\n\nconst clientSatisfied = satisfactionIndicators.some(phrase => userLower.includes(phrase));\n\nif (clientSatisfied && aiResponse.length > 50) {\n  learningMoments.push({\n    category: 'positive_interaction',\n    step: 'general',\n    user_context: userMessage,\n    agent_response: aiResponse,\n    outcome: 'client_satisfaction',\n    reason: 'Client expressed satisfaction with explanation',\n    conversation_excerpt: conversationHistory.slice(-2).filter(m => m.role !== 'system')\n  });\n  console.log(\"✅ Detected: Client satisfaction\");\n}\n\nconsole.log(`📊 Total learning moments detected: ${learningMoments.length}`);\n\nif (learningMoments.length === 0) {\n  return [];\n}\n\nreturn learningMoments.map(moment => ({\n  json: {\n    ...moment,\n    program_id: onboardingData.programId || null,\n    session_id: prepareData.sessionId || null,\n    client_name: onboardingData.clientName || null,\n    company_name: onboardingData.companyName || null,\n    timestamp: new Date().toISOString()\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -368,
+        1120
+      ],
+      "name": "Detect Learning Moments1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/embeddings",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "input",
+              "value": "=={{ $json.user_context + ' ' + $json.agent_response }}"
+            },
+            {
+              "name": "model",
+              "value": "text-embedding-ada-002"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -192,
+        1120
+      ],
+      "name": "Generate Embeddings1",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "WYVZYnTxgBsikx9E",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const learningMoment = $('Detect Learning Moments1').item.json;\nconst embeddingResponse = $input.item.json;\n\nconsole.log(\"=== PROCESSING EMBEDDING RESPONSE ===\");\nconsole.log(\"Learning moment category:\", learningMoment.category);\n\nlet embedding;\n\nif (embeddingResponse.data && embeddingResponse.data[0]) {\n  embedding = embeddingResponse.data[0].embedding;\n} else if (embeddingResponse.embedding) {\n  embedding = embeddingResponse.embedding;\n} else if (Array.isArray(embeddingResponse)) {\n  embedding = embeddingResponse;\n} else {\n  console.error(\"❌ Unexpected embedding format:\", embeddingResponse);\n  throw new Error(\"Could not extract embedding from response\");\n}\n\nconsole.log(\"✅ Embedding extracted, length:\", embedding.length);\n\nconst embeddingString = `[${embedding.join(',')}]`;\nconst conversationExcerpt = JSON.stringify(learningMoment.conversation_excerpt || []);\n\nreturn {\n  json: {\n    category: learningMoment.category,\n    step: learningMoment.step,\n    user_context: learningMoment.user_context,\n    agent_response: learningMoment.agent_response,\n    outcome: learningMoment.outcome,\n    conversation_excerpt: conversationExcerpt,\n    program_id: learningMoment.program_id,\n    session_id: learningMoment.session_id,\n    client_name: learningMoment.client_name,\n    company_name: learningMoment.company_name,\n    embedding: embeddingString\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        16,
+        1120
+      ],
+      "name": "Process Embedding Response1"
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "successful_conversation_patterns",
+          "mode": "list"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "category",
+              "displayName": "category",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "step",
+              "displayName": "step",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "user_context",
+              "displayName": "user_context",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "agent_response",
+              "displayName": "agent_response",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "outcome",
+              "displayName": "outcome",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "conversation_excerpt",
+              "displayName": "conversation_excerpt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "object",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "program_id",
+              "displayName": "program_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "session_id",
+              "displayName": "session_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "client_name",
+              "displayName": "client_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "company_name",
+              "displayName": "company_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "embedding",
+              "displayName": "embedding",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "times_retrieved",
+              "displayName": "times_retrieved",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "success_score",
+              "displayName": "success_score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "last_used_at",
+              "displayName": "last_used_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        224,
+        1120
+      ],
+      "name": "Store Pattern in Database1",
+      "credentials": {
+        "postgres": {
+          "id": "kpc0xbEzS5TnP8WZ",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "conversation_logs_v2",
+          "mode": "list",
+          "cachedResultName": "conversation_logs_v2"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "session_id": "={{ $('Prepare Data2').item.json.sessionId }}",
+            "user_message": "={{ $('Prepare Data2').item.json.userMessage }}",
+            "response": "={{ $json.response }}",
+            "iscomplete": "={{ $json.isComplete === true }}",
+            "client_name": "={{ $json.onboardingData.clientName }}",
+            "onboardingdata": "={{ $json.onboardingData }}",
+            "checklist": "={{ $json.checklist }}",
+            "ProgramID": "={{ $json.onboardingData.programId || null }}",
+            "company_name": "={{ $json.onboardingData.companyName || null }}\n"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "session_id",
+              "displayName": "session_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "user_message",
+              "displayName": "user_message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "response",
+              "displayName": "response",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "onboardingdata",
+              "displayName": "onboardingdata",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "object",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "checklist",
+              "displayName": "checklist",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "object",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "iscomplete",
+              "displayName": "iscomplete",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "client_name",
+              "displayName": "client_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "company_name",
+              "displayName": "company_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "ProgramID",
+              "displayName": "ProgramID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -288,
+        704
+      ],
+      "name": "log conversation",
+      "credentials": {
+        "postgres": {
+          "id": "kpc0xbEzS5TnP8WZ",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract the followUp data\nconst followUp = $json.followUp;\nconst sessionId = $('Prepare Data2').item.json.sessionId;\n\nconsole.log(\"=== PREPARING FOLLOW-UP FOR INSERT ===\");\nconsole.log(\"SessionId:\", sessionId);\nconsole.log(\"FollowUp:\", followUp);\n\n// Format date as SQL timestamp string (PostgreSQL compatible)\nconst followUpDate = new Date(followUp.follow_up_at);\nconst sqlTimestamp = followUpDate.toISOString().replace('T', ' ').replace('Z', '');\n\n// Return clean data ready for Postgres\nreturn {\n  session_id: sessionId,\n  user_message: followUp.original_message,\n  reason: followUp.reason,\n  follow_up_at: sqlTimestamp  // Formatted as \"2025-12-22 10:51:39.099\"\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        624,
+        656
+      ],
+      "name": "prepare data for db"
+    },
+    {
+      "parameters": {
+        "jsCode": "const followUp = $json.followUp;\n\nconsole.log(\"=== FOLLOW-UP ROUTING ===\");\nconsole.log(\"FollowUp value:\", JSON.stringify(followUp));\nconsole.log(\"Should insert?\", followUp !== null && followUp !== undefined);\n\nif (followUp !== null && followUp !== undefined) {\n  // Has follow-up - route to insert\n  console.log(\"✅ Routing to INSERT\");\n  return { json: $json };\n} else {\n  // No follow-up - return empty (don't route to insert)\n  console.log(\"❌ No follow-up, skipping insert\");\n  return [];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        432,
+        656
+      ],
+      "name": "follow up node"
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "follow_up_events",
+          "mode": "list",
+          "cachedResultName": "follow_up_events"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {
+            "follow_up_at": "=$json.follow_up_at",
+            "session_id": "$json.session_id",
+            "reason": "$json.reason",
+            "user_message": "$json.user_message"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "session_id",
+              "displayName": "session_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "user_message",
+              "displayName": "user_message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "reason",
+              "displayName": "reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "follow_up_at",
+              "displayName": "follow_up_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "processed",
+              "displayName": "processed",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        816,
+        656
+      ],
+      "name": "insert rows in DB",
+      "credentials": {
+        "postgres": {
+          "id": "kpc0xbEzS5TnP8WZ",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return {\n  response: $('Process Data2').item.json.response,\n  onboardingData: $('Process Data2').item.json.onboardingData,\n  checklist: $('Process Data2').item.json.checklist,\n  isComplete: $('Process Data2').item.json.isComplete\n};\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1024,
+        656
+      ],
+      "name": "convert data"
+    },
+    {
+      "parameters": {
+        "resource": "chatMessage",
+        "chatId": {
+          "__rl": true,
+          "value": "19:187a7ddd-e1b0-4aa1-81eb-36d0103647e3_fd5294bb-3be2-4fee-9016-3ac2450b5fd1@unq.gbl.spaces",
+          "mode": "list",
+          "cachedResultName": "Corin Ward, Harry Collins (oneOnOne)",
+          "cachedResultUrl": "https://teams.microsoft.com/l/chat/19%3A187a7ddd-e1b0-4aa1-81eb-36d0103647e3_fd5294bb-3be2-4fee-9016-3ac2450b5fd1%40unq.gbl.spaces/0?tenantId=94ce7d47-320c-4014-b5d7-40a42f741c3d"
+        },
+        "contentType": "html",
+        "message": "=<div style=\"font-family:Segoe UI, sans-serif\">\n\n<p>🚀 <b>New Implementation Update</b></p>\n\n<p>A new client implementation has progressed to branded tracking setup.</p>\n\n<b>Company:</b> {{$json.onboardingData.companyName || \"N/A\"}}<br>\n<b>Program ID:</b> {{$json.onboardingData.programId || \"N/A\"}}</p>\n\n<hr>\n\n<p><b>Branded Tracking Domains Confirmed</b><br>\n• <b>Visit Domain:</b> {{$json.brandedVisitDomain || \"N/A\"}}<br>\n• <b>Statics Domain:</b> {{$json.brandedStaticsDomain || \"N/A\"}}</p>\n\n<hr>\n\n<p>Please proceed with the next technical integration steps.</p>\n\n</div>\n",
+        "options": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "type": "n8n-nodes-base.microsoftTeams",
+      "typeVersion": 2,
+      "position": [
+        432,
+        336
+      ],
+      "name": "Branded Tracking Teams",
+      "webhookId": "4c8dd7d8-76f5-4ea1-aa72-b88adc4de0a6",
+      "credentials": {
+        "microsoftTeamsOAuth2Api": {
+          "id": "lO6U575FUYqv51f2",
+          "name": "Microsoft Teams account 3"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const trigger = $json.triggerProductFeedNotification;\n\nconsole.log(\"=== PRODUCT FEED ROUTING ===\");\nconsole.log(\"Trigger value:\", trigger);\nconsole.log(\"Feed URL:\", $json.onboardingData?.productFeedUrl);\n\nif (trigger === true) {\n  return [{ json: $json }];\n} else {\n  return [];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        208,
+        160
+      ],
+      "name": "Product Feed JS",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const trigger = $json.triggerBrandedTrackingNotification;\n\nconsole.log(\"=== TEAMS ROUTING DECISION ===\");\nconsole.log(\"Trigger value:\", trigger);\nconsole.log(\"Trigger type:\", typeof trigger);\nconsole.log(\"Should send Teams?\", trigger === true);\n\nif (trigger === true) {\n  // Send to Teams (output to index 0)\n  return [{ json: $json }];\n} else {\n  // Don't send to Teams (no output)\n  return [];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        208,
+        336
+      ],
+      "name": "Branded Tracking JS",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "resource": "chatMessage",
+        "chatId": {
+          "__rl": true,
+          "value": "19:187a7ddd-e1b0-4aa1-81eb-36d0103647e3_fd5294bb-3be2-4fee-9016-3ac2450b5fd1@unq.gbl.spaces",
+          "mode": "list",
+          "cachedResultName": "Corin Ward, Harry Collins (oneOnOne)",
+          "cachedResultUrl": "https://teams.microsoft.com/l/chat/19%3A187a7ddd-e1b0-4aa1-81eb-36d0103647e3_fd5294bb-3be2-4fee-9016-3ac2450b5fd1%40unq.gbl.spaces/0?tenantId=94ce7d47-320c-4014-b5d7-40a42f741c3d"
+        },
+        "contentType": "html",
+        "message": "=<div style=\"font-family:Segoe UI, sans-serif\">\n\n<p>📦 <b>Product Feed Submitted</b></p>\n\n<p>A client has submitted their product feed URL for processing.</p>\n\n\n<b>Company:</b> {{$json.onboardingData.companyName || \"N/A\"}}<br>\n<b>Program ID:</b> {{$json.onboardingData.programId || \"N/A\"}}</p>\n\n<hr>\n\n<p><b>Product Feed URL:</b><br>\n{{$json.onboardingData.productFeedUrl || \"N/A\"}}</p>\n\n<p><b>Feed Format:</b> {{$json.onboardingData.feedFormat || \"Unknown\"}}</p>\n\n<hr>\n\n<p>Please validate and process the feed mapping.</p>\n\n</div>",
+        "options": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "type": "n8n-nodes-base.microsoftTeams",
+      "typeVersion": 2,
+      "position": [
+        416,
+        160
+      ],
+      "name": "Product Feed Message",
+      "webhookId": "4c8dd7d8-76f5-4ea1-aa72-b88adc4de0a6",
+      "credentials": {
+        "microsoftTeamsOAuth2Api": {
+          "id": "lO6U575FUYqv51f2",
+          "name": "Microsoft Teams account 3"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const trigger = $json.triggerTestSaleNotification;\n\nconsole.log(\"=== TEST SALE ROUTING ===\");\nconsole.log(\"Trigger value:\", trigger);\nconsole.log(\"Client:\", $json.onboardingData?.clientName);\n\nif (trigger === true) {\n  return [{ json: $json }];\n} else {\n  return [];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        208,
+        0
+      ],
+      "name": "Test Sale JS",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "resource": "chatMessage",
+        "chatId": {
+          "__rl": true,
+          "value": "19:187a7ddd-e1b0-4aa1-81eb-36d0103647e3_fd5294bb-3be2-4fee-9016-3ac2450b5fd1@unq.gbl.spaces",
+          "mode": "list",
+          "cachedResultName": "Corin Ward, Harry Collins (oneOnOne)",
+          "cachedResultUrl": "https://teams.microsoft.com/l/chat/19%3A187a7ddd-e1b0-4aa1-81eb-36d0103647e3_fd5294bb-3be2-4fee-9016-3ac2450b5fd1%40unq.gbl.spaces/0?tenantId=94ce7d47-320c-4014-b5d7-40a42f741c3d"
+        },
+        "contentType": "html",
+        "message": "=<div style=\"font-family:Segoe UI, sans-serif\">\n\n<p>🧪 <b>Test Sale Completed - Verification Needed</b></p>\n\n<p>A client has completed a test transaction and is waiting for tracking verification.</p>\n\n<b>Company:</b> {{$json.onboardingData.companyName || \"N/A\"}}<br>\n<b>Program ID:</b> {{$json.onboardingData.programId || \"N/A\"}}</p>\n\n<hr>\n\n<p>⚠️ <b>ACTION REQUIRED:</b> Please verify the test transaction in the tracking system and confirm if tracking is functioning correctly.</p>\n\n<p>Once verified, update the client on the tracking status.</p>\n\n</div>",
+        "options": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "type": "n8n-nodes-base.microsoftTeams",
+      "typeVersion": 2,
+      "position": [
+        416,
+        0
+      ],
+      "name": "Test Sale Message",
+      "webhookId": "4c8dd7d8-76f5-4ea1-aa72-b88adc4de0a6",
+      "credentials": {
+        "microsoftTeamsOAuth2Api": {
+          "id": "lO6U575FUYqv51f2",
+          "name": "Microsoft Teams account 3"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "jsCode": "return {\n  response: $('Process Data2').item.json.response,\n  onboardingData: $('Process Data2').item.json.onboardingData,\n  checklist: $('Process Data2').item.json.checklist,\n  isComplete: $('Process Data2').item.json.isComplete,\n  followUp: $('Process Data2').item.json.followUp\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        208,
+        816
+      ],
+      "name": "Prepare Response"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Force SINGLE execution - log for debugging\nconst allItems = $input.all();\nconsole.log(\"=== TAKE LAST ITEM ===\");\nconsole.log(\"Total items received:\", allItems.length);\n\n// Return ONLY the very last item\nconst lastItem = $input.last().json;\nconsole.log(\"Returning last item:\", { hasOutput: !!lastItem.output, hasText: !!lastItem.text });\n\nreturn { json: lastItem };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -976,
+        976
+      ],
+      "name": "Take Last Item2"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ----------------------------\n// ALWAYS process only the final output of AI Agent\n// ----------------------------\nconst input = $input.last().json;\n\n// ----------------------------\n// Extract AI response\n// ----------------------------\nconst aiResponse = input.output || input.text || \"\";\nconst aiResponseLower = aiResponse.toLowerCase();\n\n// ----------------------------\n// Load onboarding data from Prepare Data2 (PERSISTENT)\n// ----------------------------\nlet data = $('Prepare Data2').item.json.onboardingData || {};\n\n// Ensure programId is preserved from Prepare Data2 (and not lost)\nconst programIdFromPrepare = $('Prepare Data2').item.json.onboardingData?.programId\n  || $('Prepare Data2').item.json.onboardingData?.programID\n  || null;\n\nif (programIdFromPrepare) {\n  data.programId = String(programIdFromPrepare).trim();\n}\n\nconsole.log(\"✅ Process Data2 preserved programId:\", data.programId || null);\n\nconsole.log(\"=== ONBOARDING DATA DEBUG ===\");\nconsole.log(\"Loaded data:\", JSON.stringify(data, null, 2));\n\n// ----------------------------\n// Extract user message from Prepare Data2\n// ----------------------------\nconst userMessageRaw = $('Prepare Data2').item.json.userMessage || \"\";\nconst userMessage = userMessageRaw.trim().toLowerCase();\n\n// ----------------------------\n// Name extraction (fixed to avoid \"happy\")\n// ----------------------------\nif (!data.clientName) {\n  const nameMatch = userMessage.match(/\\b(?:my name is|i am|i'm|im|this is)\\s+([a-z]+)\\b/i);\n  if (nameMatch) {\n    const extracted = nameMatch[1].toLowerCase();\n    \n    // Prevent false positives like \"happy\", \"good\", \"ok\"\n    const invalidNames = [\"happy\", \"ok\", \"test\", \"great\", \"fine\", \"good\"];\n    if (!invalidNames.includes(extracted)) {\n      data.clientName = extracted.charAt(0).toUpperCase() + extracted.slice(1);\n    }\n  }\n}\n\n// ----------------------------\n// Extract company\n// ----------------------------\nif (!data.companyName) {\n  const companyMatch = userMessage.match(/\\b(?:work at|from|with|representing|company)\\s+([a-z0-9&\\s]+)\\b/i);\n  if (companyMatch) {\n    data.companyName = companyMatch[1].trim();\n  }\n}\n\n// ----------------------------\n// Root domain extraction\n// ----------------------------\nconst domainMatch = userMessage.match(/([a-z0-9-]+\\.[a-z]{2,}(?:\\.[a-z]{2,})?)/i);\nif (domainMatch) {\n  const clean = domainMatch[0].replace(/^(https?:\\/\\/)?(www\\.)?/, \"\");\n  data.rootDomain = clean;\n  data.visitSubdomain = `visit.${clean}`;\n  data.staticsSubdomain = `statics.${clean}`;\n}\n\n// ----------------------------\n// Product feed URL extraction\n// ----------------------------\nconst linkMatch = userMessage.match(/https?:\\/\\/[^\\s]+/i);\nif (linkMatch && (userMessage.includes(\"feed\") || userMessage.includes(\"product\"))) {\n  data.productFeedUrl = linkMatch[0];\n}\n\n// Detect feed format\nif (data.productFeedUrl) {\n  if (data.productFeedUrl.toLowerCase().endsWith(\".xml\")) {\n    data.feedFormat = \"XML\";\n  } else if (data.productFeedUrl.toLowerCase().endsWith(\".csv\")) {\n    data.feedFormat = \"CSV\";\n  }\n}\n\n// ----------------------------\n// Extract IPs\n// ----------------------------\nif (userMessage.match(/\\b\\d{1,3}(\\.\\d{1,3}){3}\\b/)) {\n  const ips = userMessage.match(/\\b\\d{1,3}(\\.\\d{1,3}){3}\\b/g);\n  data.officeIPs = [...(data.officeIPs || []), ...ips];\n}\n\nconsole.log(\"=== DATA AFTER EXTRACTION ===\");\nconsole.log(JSON.stringify(data, null, 2));\n\n// ----------------------------\n// Detect branded tracking confirmation (ONLY PAST TENSE)\n// ----------------------------\nlet triggerBrandedTrackingNotification = false;\nlet brandedVisitDomain = null;\nlet brandedStaticsDomain = null;\n\nconst brandedPatterns = [\n  \"sent to the technical team\",\n  \"sent to our technical team\",\n  \"forwarded to the technical team\",\n  \"submitted to the technical team\"\n];\n\nlet matchedPattern = null;\nbrandedPatterns.forEach(pattern => {\n  if (aiResponseLower.includes(pattern)) {\n    matchedPattern = pattern;\n  }\n});\n\nif (matchedPattern) {\n  triggerBrandedTrackingNotification = true;\n  \n  const visitMatch = aiResponse.match(/visit\\.[a-z0-9.-]+\\.[a-z]{2,}/i);\n  const staticsMatch = aiResponse.match(/statics\\.[a-z0-9.-]+\\.[a-z]{2,}/i);\n  \n  brandedVisitDomain = visitMatch?.[0] || null;\n  brandedStaticsDomain = staticsMatch?.[0] || null;\n  \n  if (data.rootDomain) {\n    if (!brandedVisitDomain) brandedVisitDomain = `visit.${data.rootDomain}`;\n    if (!brandedStaticsDomain) brandedStaticsDomain = `statics.${data.rootDomain}`;\n  }\n}\n\n// ----------------------------\n// Detect product feed submission\n// ----------------------------\nlet triggerProductFeedNotification = false;\n\nconst productFeedPatterns = [\n  \"received your product feed url\",\n  \"i've received your product feed\",\n  \"connecting it to our ai-powered mapping system\"\n];\n\nproductFeedPatterns.forEach(pattern => {\n  if (aiResponseLower.includes(pattern) && data.productFeedUrl) {\n    triggerProductFeedNotification = true;\n  }\n});\n\n// ----------------------------\n// Detect test sale completion\n// ----------------------------\nlet triggerTestSaleNotification = false;\n\nconst testSaleUserPhrases = [\n  \"completed a test sale\",\n  \"completed the test sale\",\n  \"done a test sale\",\n  \"finished the test\",\n  \"completed a test\"\n];\n\nconst testSaleAiPatterns = [\n  \"sent a message through to our technical team to verify\",\n  \"technical team to verify if the tracking is live\"\n];\n\nconst userMentionedTest = testSaleUserPhrases.some(phrase => userMessage.includes(phrase));\nconst aiConfirmedTest = testSaleAiPatterns.some(pattern => aiResponseLower.includes(pattern));\n\nif (userMentionedTest && aiConfirmedTest) {\n  triggerTestSaleNotification = true;\n}\n\n// ----------------------------\n// Detect file upload completion\n// ----------------------------\nlet triggerFileUploadNotification = false;\n\n// Check if AI confirmed receiving files\nconst fileUploadPatterns = [\n  \"received your\",\n  \"i've received your\",\n  \"thank you for uploading\",\n  \"files have been received\"\n];\n\nconst mentionsAssets = aiResponseLower.includes(\"logo\") || \n                       aiResponseLower.includes(\"banner\") || \n                       aiResponseLower.includes(\"asset\");\n\nif (mentionsAssets && fileUploadPatterns.some(pattern => aiResponseLower.includes(pattern))) {\n  triggerFileUploadNotification = true;\n}\n\n// ----------------------------\n// FOLLOW-UP DETECTION\n// ----------------------------\nconst postponementPhrases = [\n  \"not ready\", \"later\", \"another time\", \"set this up later\",\n  \"come back\", \"not yet\", \"few days\", \"don't have this right now\"\n];\n\nlet followUp = null;\n\nif (postponementPhrases.some((phrase) => userMessage.includes(phrase))) {\n  const followUpDate = new Date();\n  followUpDate.setDate(followUpDate.getDate() + 3);\n\n  followUp = {\n    reason: \"user_postponed_step\",\n    follow_up_at: followUpDate.toISOString(),\n    original_message: userMessageRaw\n  };\n}\n\n// ----------------------------\n// Checklist\n// ----------------------------\nconst checklist = {\n  intro: !!(data.clientName && data.companyName),\n  brandedTracking: !!data.rootDomain,\n  productFeed: !!data.productFeedUrl,\n  assets: false, // You can update this based on file upload detection\n  ipAddresses: !!(data.officeIPs && data.officeIPs.length > 0),\n  trackingScripts: false\n};\n\nconst isComplete = Object.values(checklist).every(Boolean);\n\n// ----------------------------\n// Return — ONLY 1 ITEM\n// ----------------------------\nreturn [\n  {\n    json: {\n      response: aiResponse,\n      onboardingData: data,\n      checklist,\n      isComplete,\n      triggerBrandedTrackingNotification,\n      brandedVisitDomain,\n      brandedStaticsDomain,\n      triggerProductFeedNotification,\n      triggerTestSaleNotification,\n      triggerFileUploadNotification,\n      followUp\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -704,
+        976
+      ],
+      "name": "Process Data2"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Force everything to single item BEFORE formatting\nconst items = $input.all();\n\nconsole.log(\"=== COLLAPSE TO SINGLE ITEM ===\");\nconsole.log(\"Received items:\", items.length);\n\n// Return only the first item (or the fallback if that's all we have)\nreturn items[0] ? [items[0]] : [{\n  json: {\n    user_context: 'No similar patterns found',\n    agent_response: 'Using base knowledge',\n    outcome: 'no_results',\n    category: null,\n    step: null,\n    similarity_score: 999,\n    priority: 2\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1856,
+        816
+      ],
+      "name": "Collapse to Single Item2"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nconsole.log(\"=== ENSURE RESULTS ===\" );\nconsole.log(\"Items from PostgreSQL:\", items.length);\n\n// If we got nothing, create a fallback result\nif (items.length === 0) {\n  console.log(\"⚠️ No results from database, creating fallback\");\n  return [{\n    json: {\n      user_context: 'No similar patterns found',\n      agent_response: 'Using base knowledge',\n      outcome: 'no_results',\n      category: null,\n      step: null,\n      similarity_score: 999,\n      priority: 2\n    }\n  }];\n}\n\n// Otherwise pass through what we got\nreturn items;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2064,
+        816
+      ],
+      "name": "ensure results2"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.sql }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -2240,
+        816
+      ],
+      "name": "Execute a SQL query2",
+      "credentials": {
+        "postgres": {
+          "id": "kpc0xbEzS5TnP8WZ",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const inputData = $input.item.json;\nconst { queryEmbedding, detectedCategory } = inputData;\n\n// Build the SQL query with values directly embedded\nconst categoryFilter = detectedCategory \n  ? `category = '${detectedCategory}'` \n  : 'TRUE';\n\nconst sql = `\nWITH search_results AS (\n  SELECT \n    user_context,\n    agent_response,\n    outcome,\n    category,\n    step,\n    embedding <=> '${queryEmbedding}'::vector AS similarity_score,\n    1 as priority\n  FROM successful_conversation_patterns\n  WHERE \n    ${categoryFilter}\n    AND embedding <=> '${queryEmbedding}'::vector < 0.75\n  LIMIT 3\n)\nSELECT * FROM search_results\nUNION ALL\nSELECT \n  'No similar patterns found'::text as user_context,\n  'Using base knowledge'::text as agent_response,\n  'no_results'::text as outcome,\n  NULL as category,\n  NULL as step,\n  999::float8 as similarity_score,\n  2 as priority\nWHERE NOT EXISTS (SELECT 1 FROM search_results)\nORDER BY priority, similarity_score;\n`;\n\n// Pass through ALL data needed downstream\nreturn {\n  json: {\n    sql: sql,\n    // Pass through all the data from Detect Category Position\n    queryEmbedding: inputData.queryEmbedding,\n    detectedCategory: inputData.detectedCategory,\n    messages: inputData.messages,\n    systemPrompt: inputData.systemPrompt,\n    userMessage: inputData.userMessage,\n    onboardingData: inputData.onboardingData,\n    checklist: inputData.checklist,\n    sessionId: inputData.sessionId\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1328,
+        608
+      ],
+      "name": "Build and Execute Search2"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get database results from PostgreSQL\nconst inputItems = $input.all();\nconsole.log(\"=== FORMATTING LEARNING CONTEXT ===\");\nconsole.log(\"Input items received:\", inputItems.length);\n\n// Filter out 'no_results' entries\nconst patterns = inputItems.filter(p => p.json && p.json.outcome !== 'no_results');\nconsole.log(\"Valid patterns after filtering:\", patterns.length);\n\n// Get original context data from \"Detect Category Position\" node\nconst detectData = $('Detect Category Position2').item.json;\n\nlet learningContext = \"\";\n\nif (patterns.length > 0) {\n  learningContext = `\n\n📚 LEARNING FROM PAST SUCCESSES:\nBased on ${patterns.length} similar past conversation${patterns.length > 1 ? 's' : ''}:\n\n${patterns.map((p, i) => {\n  const similarity = (1 - p.json.similarity_score) * 100;\n  const category = p.json.category ? p.json.category.replace(/_/g, ' ') : 'general';\n  const userContext = p.json.user_context || 'No context';\n  const agentResponse = p.json.agent_response || 'No response';\n  const outcome = p.json.outcome ? p.json.outcome.replace(/_/g, ' ') : 'completed';\n  \n  return `\n${i + 1}. [${similarity.toFixed(0)}% similar] ${category}\n   Client asked: \"${userContext.substring(0, 150)}${userContext.length > 150 ? '...' : ''}\"\n   \n   Successful approach: \"${agentResponse.substring(0, 250)}${agentResponse.length > 250 ? '...' : ''}\"\n   \n   Outcome: ${outcome}\n`;\n}).join('\\n')}\n\nApply these proven approaches to the current question when relevant.\n`;\n\n  console.log(\"✅ Learning context created with\", patterns.length, \"patterns\");\n} else {\n  console.log(\"⚠️ No similar patterns found, using base knowledge\");\n}\n\n// CRITICAL FIX: Use the system prompt from detectData (which has validation already injected)\n// NOT from Prepare Data2 (which is the original without validation)\nconst originalPrompt = detectData.systemPrompt;\n\n// Inject learning context into system prompt (AFTER validation context)\nconst insertPoint = originalPrompt.indexOf('CRITICAL:');\nconst beforeCritical = originalPrompt.substring(0, insertPoint);\nconst afterCritical = originalPrompt.substring(insertPoint);\n\nconst enhancedSystemPrompt = beforeCritical + learningContext + '\\n\\n' + afterCritical;\n\n// RETURN AS ARRAY to maintain pairing\nreturn [{\n  json: {\n    messages: [\n      { role: \"system\", content: enhancedSystemPrompt },\n      ...detectData.messages.filter(m => m.role !== 'system')\n    ],\n    systemPrompt: enhancedSystemPrompt,\n    userMessage: detectData.userMessage,\n    onboardingData: detectData.onboardingData,\n    checklist: detectData.checklist,\n    sessionId: detectData.sessionId\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1648,
+        816
+      ],
+      "name": "Format Learning Context2"
+    },
+    {
+      "parameters": {
+        "jsCode": "const userMessage = $json.userMessage.toLowerCase();\n\nconsole.log(\"=== DETECTING CATEGORY ===\" );\n\n// Detect category based on keywords\nlet category = null;\nlet step = null;\n\nif (userMessage.includes('cname') || userMessage.includes('dns') || userMessage.includes('subdomain')) {\n  category = 'dns_confusion_resolved';\n  step = 'brandedTracking';\n  console.log(\"✅ Detected: DNS/CNAME question\");\n} else if (userMessage.includes('gtm') || userMessage.includes('tag manager') || userMessage.includes('preview')) {\n  category = 'gtm_implementation_guidance';\n  step = 'trackingScripts';\n  console.log(\"✅ Detected: GTM question\");\n} else if (userMessage.includes('confused') || userMessage.includes('not sure') || userMessage.includes('don\\'t understand')) {\n  category = 'positive_interaction';\n  step = 'general';\n  console.log(\"✅ Detected: Confusion/help needed\");\n} else if (userMessage.includes('feed') || userMessage.includes('product')) {\n  category = 'product_feed_submission';\n  step = 'productFeed';\n  console.log(\"✅ Detected: Product feed question\");\n} else if (userMessage.includes('test') || userMessage.includes('tracking')) {\n  category = 'tracking_test_completion';\n  step = 'trackingScripts';\n  console.log(\"✅ Detected: Tracking/testing question\");\n} else {\n  console.log(\"⚠️ No specific category detected, will search all\");\n}\n\nreturn {\n  json: {\n    ...$json,\n    detectedCategory: category,\n    detectedStep: step\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1488,
+        608
+      ],
+      "name": "Detect Category Position2"
+    },
+    {
+      "parameters": {
+        "jsCode": "const embeddingResponse = $input.item.json;\n\nconsole.log(\"=== PROCESSING QUERY EMBEDDING ===\");\n\n// Extract embedding from OpenAI response\nlet embedding;\n\nif (embeddingResponse.data && embeddingResponse.data[0]) {\n  embedding = embeddingResponse.data[0].embedding;\n} else if (embeddingResponse.embedding) {\n  embedding = embeddingResponse.embedding;\n} else if (Array.isArray(embeddingResponse)) {\n  embedding = embeddingResponse;\n} else {\n  console.error(\"❌ Unexpected embedding format:\", embeddingResponse);\n  throw new Error(\"Could not extract embedding from response\");\n}\n\nconsole.log(\"✅ Query embedding extracted, length:\", embedding.length);\n\n// Format as PostgreSQL vector string\nconst embeddingString = `[${embedding.join(',')}]`;\n\n// Get user message from Inject Validation into Prompt\nconst injectValidationData = $('Inject Validation into Prompt').item.json;\n\nreturn {\n  json: {\n    queryEmbedding: embeddingString,\n    userMessage: injectValidationData.userMessage,\n    // Pass through all data needed later\n    messages: injectValidationData.messages,\n    systemPrompt: injectValidationData.systemPrompt,\n    onboardingData: injectValidationData.onboardingData,\n    checklist: injectValidationData.checklist,\n    sessionId: injectValidationData.sessionId\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1664,
+        608
+      ],
+      "name": "Process Query Embedding2"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/embeddings",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "input",
+              "value": "=={{ $json.userMessage }}"
+            },
+            {
+              "name": "model",
+              "value": "text-embedding-ada-002"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1856,
+        608
+      ],
+      "name": "Generate Query Embedding2",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "WYVZYnTxgBsikx9E",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ \n$json.systemPrompt \n+ \"\\n\\nMost Recent User Message:\\n\"\n+ $json.userMessage \n+ \"\\n\\nConversation so far:\\n\" \n+ $json.messages.filter(m => m.role !== 'system').map(m => m.role + ': ' + m.content).join('\\n') \n}}",
+        "options": {
+          "returnIntermediateSteps": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        -1440,
+        816
+      ],
+      "name": "AI Agent2"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ----------------------------\n// Get incoming data\n// ----------------------------\nconst reqJson = $input.item.json || {};\nconst body = reqJson.body || {}; // what your frontend POSTs\nconst inputBinary = $input.item.binary || {}; // pass-through files\n\nconst userMessage = body.message || \"\";\nconst conversationHistory = body.conversationHistory || [];\nconst onboardingData = body.onboardingData || {};\nconst checklist = body.checklist || {};\n\nconsole.log(\"=== PREPARE DATA2 DEBUG ===\");\nconsole.log(\"Has binary data:\", Object.keys(inputBinary).length > 0);\nconsole.log(\"Binary keys:\", Object.keys(inputBinary));\nconsole.log(\"Incoming query:\", JSON.stringify(reqJson.query || {}, null, 2));\nconsole.log(\"Incoming params:\", JSON.stringify(reqJson.params || {}, null, 2));\n\n// ------------------------------------------------\n// PROGRAM ID HANDLING (URL query/body/params → persistent onboardingData)\n// ------------------------------------------------\nconst query = reqJson.query || {};\nconst params = reqJson.params || {};\n\n// Priority order:\n// 1) Path param: /onboarding-chat/:programId\n// 2) Query string: ?programID=12345 (and aliases)\n// 3) Request body: { programID: \"12345\" } (and aliases)\n// 4) Existing onboardingData.programId\nlet programId =\n  params.programId ||\n  params.programID ||\n  query.programID ||\n  query.programId ||\n  query.program_id ||\n  query.programid ||\n  body.programID ||\n  body.programId ||\n  body.program_id ||\n  // sometimes payloads can be flattened in some setups\n  reqJson.programID ||\n  reqJson.programId ||\n  reqJson.program_id ||\n  onboardingData.programId ||\n  onboardingData.programID ||\n  null;\n\n// Normalize + validate\nif (programId !== null && programId !== undefined) {\n  programId = String(programId).trim();\n\n  const invalidValues = [\"n/a\", \"na\", \"undefined\", \"null\", \"\"];\n  if (!invalidValues.includes(programId.toLowerCase())) {\n    onboardingData.programId = programId;\n  }\n}\n\nconsole.log(\"✅ programId resolved to:\", onboardingData.programId || null);\n\n// ------------------------------------------------\n// Implementation URL (depends on onboardingData.programId)\n// ------------------------------------------------\nlet implementationUrl = \"\";\nif (onboardingData.programId) {\n  implementationUrl = `https://hst.tradedoubler.com/file/${onboardingData.programId}/implementation.html`;\n}\n\n// ------------------------------------------------\n// SAFETY RULE: Prevent mistakes in client name extraction\n// ------------------------------------------------\nonboardingData.disallowedNames = [\n  \"happy\", \"good\", \"ok\", \"great\", \"fine\", \"yes\", \"yep\", \"sure\", \"okay\"\n];\n\n// ============================================\n// IMPROVED DATA EXTRACTION\n// ============================================\n\n// ----------------------------\n// STRICT NAME EXTRACTION (Conservative - No False Positives)\n// ----------------------------\nif (!onboardingData.clientName) {\n  const namePatterns = [\n    /\\b(?:my name is|my name's|name is)\\s+([A-Z][a-z]+)/i,\n    /\\b(?:i'm|i am|im)\\s+([A-Z][a-z]+)\\s+(?:from|at|with|and)\\b/i,\n    /\\b(?:this is|it's|its)\\s+([A-Z][a-z]+)\\s+(?:from|at|with|calling|speaking|here)/i,\n    /\\b(?:call me|you can call me)\\s+([A-Z][a-z]+)/i,\n    /^(?:hi|hello|hey),?\\s+(?:i'm|im|i am|this is|it's|its)\\s+([A-Z][a-z]+)\\s+(?:from|at|with)/i\n  ];\n\n  for (const pattern of namePatterns) {\n    const match = userMessage.match(pattern);\n    if (match) {\n      const extracted = match[1];\n\n      const invalidNames = [\n        \"happy\", \"ok\", \"good\", \"great\", \"fine\", \"yes\", \"yep\", \"sure\", \"okay\",\n        \"thanks\", \"thank\", \"hi\", \"hello\", \"hey\", \"welcome\", \"here\", \"there\",\n        \"ready\", \"done\", \"perfect\", \"correct\", \"right\", \"wrong\"\n      ];\n\n      if (!invalidNames.includes(extracted.toLowerCase())) {\n        onboardingData.clientName =\n          extracted.charAt(0).toUpperCase() + extracted.slice(1).toLowerCase();\n        console.log(`✅ Extracted name: ${onboardingData.clientName}`);\n        break;\n      } else {\n        console.log(`❌ Blocked false positive: ${extracted}`);\n      }\n    }\n  }\n}\n\n// ----------------------------\n// COMPANY EXTRACTION\n// ----------------------------\nif (!onboardingData.companyName) {\n  const companyPatterns = [\n    /\\b(?:from|with|at|representing)\\s+([A-Z][A-Za-z0-9&\\s]{1,40})(?:\\.|,|!|$)/i,\n    /\\b(?:work at|working at|work for|working for)\\s+([A-Z][A-Za-z0-9&\\s]{1,40})(?:\\.|,|!|$)/i,\n    /\\b(?:company(?:\\s+name)?\\s+is)\\s+([A-Z][A-Za-z0-9&\\s]{1,40})(?:\\.|,|!|$)/i\n  ];\n\n  for (const pattern of companyPatterns) {\n    const match = userMessage.match(pattern);\n    if (match) {\n      let extracted = match[1].trim();\n      extracted = extracted.replace(/\\s+(limited|ltd|llc|inc|plc|gmbh|corp|corporation)$/i, \"\");\n      extracted = extracted.replace(/\\s+(and|to|the|or|for|in|on|is)$/i, \"\");\n\n      const invalidCompanies = [\"there\", \"here\", \"now\", \"the\", \"this\", \"that\", \"it\"];\n\n      if (!invalidCompanies.includes(extracted.toLowerCase()) && extracted.length >= 2) {\n        onboardingData.companyName = extracted.trim();\n        console.log(`✅ Extracted company: ${onboardingData.companyName}`);\n        break;\n      }\n    }\n  }\n}\n\n// ----------------------------\n// EMAIL EXTRACTION\n// ----------------------------\nif (!onboardingData.clientEmail) {\n  const emailMatch = userMessage.match(/\\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Z|a-z]{2,}\\b/);\n  if (emailMatch) {\n    onboardingData.clientEmail = emailMatch[0].toLowerCase();\n    console.log(`✅ Extracted email: ${onboardingData.clientEmail}`);\n  }\n}\n\n// ------------------------------------------------\n// SYSTEM PROMPT\n// ------------------------------------------------\nconst systemPrompt = `\nYou are an expert onboarding assistant for Tradedoubler, an affiliate marketing network. Guide clients through technical onboarding in a friendly, professional manner. Only greet the user once at the start of the conversation; once the conversation is flowing never repeat greetings such as Hi, Hello or Hey.\n\nPROACTIVE GUIDANCE RULES:\n- Guide users forward through each step WITHOUT waiting for them to ask what's next\n- When you sense hesitation or confusion, proactively offer help\n- If a user seems stuck, suggest example questions they can ask\n- Don't let silences linger - guide them to the next step\n- Anticipate common blockers and address them before they become problems\n\nCRITICAL: You MUST follow these steps IN ORDER. After collecting information for one step, AUTOMATICALLY move to the next step. Do NOT ask what the user wants to do - guide them through the process step by step.\n\nOnboarding steps:\n1. BRANDED TRACKING: Two subdomains (visit.clientdomain.com and statics.clientdomain.com).\nFIRST: Get client name, company name, and email address if you don't have them yet.\n\n5. TRACKING SCRIPTS:\nSay:\n\"Perfect! Now that your domains are confirmed, here are your tracking scripts:\n\n📄 Implementation File: ${implementationUrl}\n\nThis file contains:\n- Complete GTM setup guide with step-by-step instructions\n- Landing page script (for all pages)\n- Confirmation page script (for thank-you/order confirmation page)\n- Test link for verification\n\nNEXT STEPS:\n1. Follow the GTM manual in the implementation file to set up your tracking\n2. Once integrated, use the test link provided to complete a test transaction\n3. This will verify that tracking is working correctly\n\nWould you like me to walk you through the GTM setup, or do you have a developer who will handle this?\"\n\nCurrent progress:\n- Client: ${onboardingData.clientName || 'Not provided'}\n- Company: ${onboardingData.companyName || 'Not provided'}\n- Email: ${onboardingData.clientEmail || 'Not provided'}\n- ProgramID: ${onboardingData.programId || 'Not provided'}\n- Completed steps: ${Object.values(checklist).filter(Boolean).length}/6\n`;\n\n// ----------------------------\n// Messages\n// ----------------------------\nconst messages = [\n  { role: \"system\", content: systemPrompt },\n  ...conversationHistory,\n  { role: \"user\", content: userMessage }\n];\n\n// ----------------------------\n// Return clean payload WITH BINARY DATA\n// ----------------------------\nreturn {\n  json: {\n    messages,\n    systemPrompt,\n    userMessage,\n    onboardingData,\n    checklist,\n    sessionId: body.sessionId || null\n  },\n  binary: inputBinary\n};\n"
+      },
+      "name": "Prepare Data2",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2096,
+        384
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "onboarding-chat",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "name": "Webhook2",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -2256,
+        384
+      ],
+      "webhookId": "onboarding-chat"
+    },
+    {
+      "parameters": {
+        "jsCode": "const hasBinaryFiles = $json.hasBinaryFiles;\nconst allBinary = $input.item.binary || {};\nconst jsonData = $input.item.json;\n\nconsole.log(\"=== PROCESSING UPLOADED FILES ===\");\nconsole.log(\"hasBinaryFiles flag:\", hasBinaryFiles);\nconsole.log(\"Binary keys:\", Object.keys(allBinary));\n\n// If no files, skip processing\nif (!hasBinaryFiles || Object.keys(allBinary).length === 0) {\n  console.log(\"✅ No files to process, passing through\");\n  return [{\n    json: {\n      hasImageValidation: false,\n      allValid: true,\n      messages: jsonData.messages,\n      systemPrompt: jsonData.systemPrompt,\n      userMessage: jsonData.userMessage,\n      onboardingData: jsonData.onboardingData,\n      checklist: jsonData.checklist,\n      sessionId: jsonData.sessionId\n    }\n  }];\n}\n\nconsole.log(\"Binary files found:\", Object.keys(allBinary));\n\nconst fileItems = [];\n\nfor (const [key, fileData] of Object.entries(allBinary)) {\n  const filename = fileData.fileName || key;\n  const mimeType = fileData.mimeType || '';\n  \n  console.log(`\\n📄 File: ${filename}`);\n  console.log(`   Type: ${mimeType}`);\n  console.log(`   Key: ${key}`);\n  console.log(`   Has data: ${!!fileData.data}`);\n  console.log(`   Size: ${fileData.data ? fileData.data.length : 0} bytes`);\n  \n  // Only process images\n  if (mimeType.startsWith('image/')) {\n    \n    // IMPROVED: Determine expected type (check both field name AND filename)\n    let expectedType = null;\n    \n    // Check field name first\n    if (key.toLowerCase().includes('logo')) {\n      expectedType = 'logo';\n    } else if (key.toLowerCase().includes('banner') || key.toLowerCase().includes('ad')) {\n      expectedType = 'banner';\n    }\n    \n    // If not found in field name, check filename\n    if (!expectedType && filename.toLowerCase().includes('logo')) {\n      expectedType = 'logo';\n    } else if (!expectedType && (filename.toLowerCase().includes('banner') || filename.toLowerCase().includes('ad'))) {\n      expectedType = 'banner';\n    }\n    \n    console.log(`   Expected: ${expectedType || 'unknown'}`);\n    console.log(`   ✅ Adding to validation queue`);\n    \n    fileItems.push({\n      json: {\n        fieldName: key,\n        filename: filename,\n        mimeType: mimeType,\n        expectedType: expectedType,\n        messages: jsonData.messages,\n        systemPrompt: jsonData.systemPrompt,\n        userMessage: jsonData.userMessage,\n        onboardingData: jsonData.onboardingData,\n        checklist: jsonData.checklist,\n        sessionId: jsonData.sessionId\n      },\n      binary: {\n        file: fileData\n      }\n    });\n  } else {\n    console.log(`   ⚠️ Skipping non-image (${mimeType})`);\n  }\n}\n\nif (fileItems.length === 0) {\n  console.log(\"⚠️ No image files found, passing through\");\n  return [{\n    json: {\n      hasImageValidation: false,\n      allValid: true,\n      messages: jsonData.messages,\n      systemPrompt: jsonData.systemPrompt,\n      userMessage: jsonData.userMessage,\n      onboardingData: jsonData.onboardingData,\n      checklist: jsonData.checklist,\n      sessionId: jsonData.sessionId\n    }\n  }];\n}\n\nconsole.log(`✅ Processing ${fileItems.length} image(s)`);\n\nreturn fileItems;"
+      },
+      "name": "Process Each File",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1600,
+        384
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Check if this is a pass-through (no files)\nif ($json.hasImageValidation === false) {\n  console.log(\"=== PASS-THROUGH: No files to validate ===\");\n  return { json: $json };\n}\n\nconst fieldName = $json.fieldName;\nconst filename = $json.filename;\nconst expectedType = $json.expectedType;\n\nconsole.log(\"=== VALIDATING:\", filename, \"===\");\n\n// Get the buffer\nconst fileData = $binary.file;\n\nif (!fileData || !fileData.data) {\n  console.error(\"Binary data structure:\", Object.keys($binary || {}));\n  throw new Error(`No file data found for: ${filename}`);\n}\n\nconst imageBuffer = fileData.data;\nconsole.log(\"Buffer size:\", imageBuffer.length, \"bytes\");\n\n// PNG dimensions\nfunction getPNG(buf) {\n  if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4E && buf[3] === 0x47) {\n    return { width: buf.readUInt32BE(16), height: buf.readUInt32BE(20), format: 'png' };\n  }\n  return null;\n}\n\n// JPEG dimensions\nfunction getJPEG(buf) {\n  if (buf[0] === 0xFF && buf[1] === 0xD8) {\n    let offset = 2;\n    while (offset < buf.length) {\n      if (buf[offset] !== 0xFF) break;\n      const marker = buf[offset + 1];\n      if (marker === 0xC0 || marker === 0xC2) {\n        return { \n          width: buf.readUInt16BE(offset + 7), \n          height: buf.readUInt16BE(offset + 5), \n          format: 'jpeg' \n        };\n      }\n      offset += 2 + buf.readUInt16BE(offset + 2);\n    }\n  }\n  return null;\n}\n\n// GIF dimensions\nfunction getGIF(buf) {\n  if (buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46) {\n    return { width: buf.readUInt16LE(6), height: buf.readUInt16LE(8), format: 'gif' };\n  }\n  return null;\n}\n\n// WebP dimensions\nfunction getWebP(buf) {\n  if (buf.toString('ascii', 0, 4) === 'RIFF' && buf.toString('ascii', 8, 12) === 'WEBP') {\n    const chunk = buf.toString('ascii', 12, 16);\n    if (chunk === 'VP8 ') {\n      return { \n        width: buf.readUInt16LE(26) & 0x3fff, \n        height: buf.readUInt16LE(28) & 0x3fff, \n        format: 'webp' \n      };\n    } else if (chunk === 'VP8L') {\n      const bits = buf.readUInt32LE(21);\n      return { \n        width: (bits & 0x3FFF) + 1, \n        height: ((bits >> 14) & 0x3FFF) + 1, \n        format: 'webp' \n      };\n    }\n  }\n  return null;\n}\n\n// Detect format and get dimensions\nconst dimensions = getPNG(imageBuffer) || getJPEG(imageBuffer) || getGIF(imageBuffer) || getWebP(imageBuffer);\n\nif (!dimensions) {\n  const firstBytes = Array.from(imageBuffer.slice(0, 8)).map(b => '0x' + b.toString(16).padStart(2, '0')).join(' ');\n  throw new Error(`Unsupported format: ${filename}. First bytes: ${firstBytes}`);\n}\n\nconst { width, height, format } = dimensions;\nconsole.log(`Dimensions: ${width}x${height} (${format})`);\n\n// ALL VALID SIZES ACROSS ALL MARKETS\nconst validSizes = {\n  logo: [\n    { width: 350, height: 130, name: \"Logo 350x130\" },\n    { width: 200, height: 100, name: \"Logo 200x100\" },\n    { width: 800, height: 280, name: \"Logo 800x280\" }\n  ],\n  banner: [\n    // Standard banners\n    { width: 88, height: 31, name: \"88x31 Banner\" },\n    { width: 136, height: 136, name: \"136x136 Banner\" },\n    { width: 198, height: 75, name: \"198x75 Banner\" },\n    { width: 200, height: 200, name: \"200x200 Banner\" },\n    { width: 250, height: 250, name: \"250x250 Banner\" },\n    { width: 468, height: 60, name: \"468x60 Banner\" },\n    { width: 500, height: 500, name: \"500x500 Banner\" },\n    \n    // Common banners\n    { width: 728, height: 90, name: \"728x90 Leaderboard\" },\n    { width: 300, height: 250, name: \"300x250 Medium Rectangle\" },\n    { width: 336, height: 280, name: \"336x280 Large Rectangle\" },\n    { width: 120, height: 600, name: \"120x600 Skyscraper\" },\n    { width: 160, height: 600, name: \"160x600 Wide Skyscraper\" },\n    { width: 300, height: 600, name: \"300x600 Half Page\" },\n    \n    // Large format banners\n    { width: 970, height: 90, name: \"970x90 Large Leaderboard\" },\n    { width: 750, height: 200, name: \"750x200 Banner\" },\n    { width: 750, height: 100, name: \"750x100 Banner\" },\n    { width: 1200, height: 1200, name: \"1200x1200 Banner\" },\n    { width: 700, height: 500, name: \"700x500 Banner\" },\n    \n    // Mobile banners\n    { width: 320, height: 50, name: \"320x50 Mobile Banner\" },\n    \n    // Merchant banners\n    { width: 1144, height: 250, name: \"1144x250 Merchant Banner\" },\n    { width: 1000, height: 215, name: \"1000x215 Merchant Banner\" }\n  ]\n};\n\n// Check validity\nlet isValid = false;\nlet matchedFormat = null;\nlet infoMessage = null;\n\n// Check against the appropriate category\nconst checkSizes = expectedType && validSizes[expectedType] \n  ? validSizes[expectedType] \n  : [...validSizes.logo, ...validSizes.banner];\n\n// Try to match dimensions\nfor (const size of checkSizes) {\n  if (width === size.width && height === size.height) {\n    isValid = true;\n    matchedFormat = size.name;\n    break;\n  }\n}\n\n// If no match found, accept it anyway with info message\nif (!isValid) {\n  isValid = true; // Accept anyway\n  matchedFormat = `${expectedType === 'logo' ? 'Logo' : 'Banner'} (${width}x${height})`;\n  \n  if (expectedType === 'logo') {\n    infoMessage = `ℹ️ Logo dimensions ${width}x${height} don't match standard sizes (350x130, 200x100, or 800x280). This may be correct for your specific market.`;\n  } else {\n    infoMessage = `ℹ️ Banner dimensions ${width}x${height} don't match our standard sizes. This may be a custom size for your market.`;\n  }\n  \n  console.log(`ℹ️ Non-standard size accepted: ${width}x${height}`);\n}\n\nconsole.log(`✅ Accepted: ${matchedFormat}`);\n\nreturn {\n  json: {\n    filename: filename,\n    width: width,\n    height: height,\n    format: format,\n    isValid: isValid, // Always true now\n    matchedFormat: matchedFormat,\n    expectedType: expectedType,\n    infoMessage: infoMessage, // Info only, not blocking\n    errorMessage: null, // Never blocking\n    // Pass through\n    messages: $json.messages,\n    systemPrompt: $json.systemPrompt,\n    userMessage: $json.userMessage,\n    onboardingData: $json.onboardingData,\n    checklist: $json.checklist,\n    sessionId: $json.sessionId\n  }\n};"
+      },
+      "name": "Validate File Dimensions",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1360,
+        384
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const results = $input.all();\n\nconsole.log(\"=== AGGREGATING RESULTS ===\");\nconsole.log(\"Total items:\", results.length);\n\n// Check if this is just a pass-through (no validation)\nif (results.length === 1 && results[0].json.hasImageValidation === false) {\n  console.log(\"Pass-through: No files were uploaded\");\n  return results[0];\n}\n\n// All files are valid (we accept everything)\nconst allFiles = results;\nconst standardSizes = results.filter(r => !r.json.infoMessage);\nconst customSizes = results.filter(r => r.json.infoMessage);\n\nlet summary = \"\";\n\n// Show all accepted files\nsummary += `✅ Accepted (${allFiles.length}):\\n`;\nallFiles.forEach(v => {\n  summary += `  • ${v.json.filename}: ${v.json.matchedFormat} (${v.json.width}x${v.json.height})`;\n  if (v.json.infoMessage) {\n    summary += ` ℹ️`;\n  }\n  summary += `\\n`;\n});\n\n// Show info messages separately if any exist\nif (customSizes.length > 0) {\n  summary += `\\nℹ️ Notes:\\n`;\n  customSizes.forEach(c => {\n    summary += `  • ${c.json.infoMessage}\\n`;\n  });\n}\n\nconsole.log(summary);\n\n// Get data from first item\nconst firstItem = results[0].json;\n\n// CRITICAL: Store validation results in onboardingData so they persist\nconst onboardingData = firstItem.onboardingData || {};\nonboardingData.uploadedFiles = onboardingData.uploadedFiles || [];\n\n// Add these files to the persistent list\nallFiles.forEach(file => {\n  onboardingData.uploadedFiles.push({\n    filename: file.json.filename,\n    dimensions: `${file.json.width}x${file.json.height}`,\n    type: file.json.expectedType,\n    matchedFormat: file.json.matchedFormat,\n    isStandard: !file.json.infoMessage,\n    infoMessage: file.json.infoMessage || null\n  });\n});\n\nreturn {\n  json: {\n    hasImageValidation: true,\n    allValid: true,\n    hasCustomSizes: customSizes.length > 0,\n    validationSummary: summary,\n    validCount: allFiles.length,\n    invalidCount: 0,\n    customSizeCount: customSizes.length,\n    messages: firstItem.messages,\n    systemPrompt: firstItem.systemPrompt,\n    userMessage: firstItem.userMessage,\n    onboardingData: onboardingData,  // Updated with file list\n    checklist: firstItem.checklist,\n    sessionId: firstItem.sessionId\n  }\n};"
+      },
+      "name": "Aggregate Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2240,
+        608
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $json;\n\nconsole.log(\"=== INJECTING VALIDATION ===\");\nconsole.log(\"Has validation:\", input.hasImageValidation);\nconsole.log(\"Has custom sizes:\", input.hasCustomSizes);\n\nlet systemPrompt = input.systemPrompt;\n\n// Check for current upload validation\nif (input.hasImageValidation && input.validationSummary) {\n  let validationContext = `\\n\\n🖼️ FILE VALIDATION:\\n${input.validationSummary}\\n`;\n  \n  if (input.hasCustomSizes) {\n    validationContext += `\\nℹ️ Some files use non-standard dimensions. Mention these to the user and ask them to confirm these are correct for their market. Once confirmed, proceed to ask about additional files or the next step.\\n`;\n  } else if (input.allValid) {\n    validationContext += `\\n✅ All files use standard dimensions! Confirm receipt and proceed to ask about additional files or the next step.\\n`;\n  } else {\n    validationContext += `\\n❌ STOP! List invalid files, explain requirements, request re-upload. DO NOT proceed.\\n`;\n  }\n  \n  systemPrompt += validationContext;\n}\n\n// ALSO check for previously uploaded files in onboardingData\nconst uploadedFiles = input.onboardingData?.uploadedFiles || [];\nif (uploadedFiles.length > 0 && !input.hasImageValidation) {\n  let previousUploadsContext = `\\n\\n📁 PREVIOUSLY UPLOADED FILES:\\n`;\n  uploadedFiles.forEach(file => {\n    previousUploadsContext += `✅ ${file.filename}: ${file.matchedFormat} (${file.dimensions})`;\n    if (!file.isStandard && file.infoMessage) {\n      previousUploadsContext += ` ℹ️`;\n    }\n    previousUploadsContext += `\\n`;\n  });\n  previousUploadsContext += `\\nThe user has already uploaded these files. Don't ask them to upload again. Instead, ask if they have any additional files or proceed to the next step.\\n`;\n  \n  systemPrompt += previousUploadsContext;\n}\n\nreturn {\n  json: {\n    messages: input.messages,\n    systemPrompt: systemPrompt,\n    userMessage: input.userMessage,\n    onboardingData: input.onboardingData,\n    checklist: input.checklist,\n    sessionId: input.sessionId\n  }\n};"
+      },
+      "name": "Inject Validation into Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2048,
+        608
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const hasBinary = $binary && Object.keys($binary).length > 0;\n\nconsole.log(\"=== FILE CHECK ===\");\nconsole.log(\"Has binary files:\", hasBinary);\n\nif (hasBinary) {\n  console.log(\"Binary keys:\", Object.keys($binary));\n}\n\n// Add flag to JSON and pass everything through\nreturn {\n  json: {\n    ...$json,\n    hasBinaryFiles: hasBinary\n  },\n  binary: $binary\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1872,
+        384
+      ],
+      "name": "Check for Files"
+    }
+  ],
+  "connections": {
+    "OpenAI Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent2",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase Vector Store1": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent2",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings OpenAI1": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Supabase Vector Store1",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "force single item1": {
+      "main": [
+        [
+          {
+            "node": "Branded Tracking JS",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Product Feed JS",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Test Sale JS",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "log conversation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Detect Learning Moments1": {
+      "main": [
+        [
+          {
+            "node": "Generate Embeddings1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Embeddings1": {
+      "main": [
+        [
+          {
+            "node": "Process Embedding Response1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Embedding Response1": {
+      "main": [
+        [
+          {
+            "node": "Store Pattern in Database1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "log conversation": {
+      "main": [
+        [
+          {
+            "node": "Prepare Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "prepare data for db": {
+      "main": [
+        [
+          {
+            "node": "insert rows in DB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "follow up node": {
+      "main": [
+        [
+          {
+            "node": "prepare data for db",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "insert rows in DB": {
+      "main": [
+        [
+          {
+            "node": "convert data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "convert data": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Product Feed JS": {
+      "main": [
+        [
+          {
+            "node": "Product Feed Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Branded Tracking JS": {
+      "main": [
+        [
+          {
+            "node": "Branded Tracking Teams",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Test Sale JS": {
+      "main": [
+        [
+          {
+            "node": "Test Sale Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Response": {
+      "main": [
+        [
+          {
+            "node": "follow up node",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Respond to Webhook1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Take Last Item2": {
+      "main": [
+        [
+          {
+            "node": "Process Data2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Data2": {
+      "main": [
+        [
+          {
+            "node": "force single item1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Detect Learning Moments1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collapse to Single Item2": {
+      "main": [
+        [
+          {
+            "node": "Format Learning Context2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ensure results2": {
+      "main": [
+        [
+          {
+            "node": "Collapse to Single Item2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute a SQL query2": {
+      "main": [
+        [
+          {
+            "node": "ensure results2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build and Execute Search2": {
+      "main": [
+        [
+          {
+            "node": "Execute a SQL query2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Learning Context2": {
+      "main": [
+        [
+          {
+            "node": "AI Agent2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Detect Category Position2": {
+      "main": [
+        [
+          {
+            "node": "Build and Execute Search2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Query Embedding2": {
+      "main": [
+        [
+          {
+            "node": "Detect Category Position2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Query Embedding2": {
+      "main": [
+        [
+          {
+            "node": "Process Query Embedding2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent2": {
+      "main": [
+        [
+          {
+            "node": "Take Last Item2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Data2": {
+      "main": [
+        [
+          {
+            "node": "Check for Files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook2": {
+      "main": [
+        [
+          {
+            "node": "Prepare Data2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Each File": {
+      "main": [
+        [
+          {
+            "node": "Validate File Dimensions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate File Dimensions": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Results": {
+      "main": [
+        [
+          {
+            "node": "Inject Validation into Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Inject Validation into Prompt": {
+      "main": [
+        [
+          {
+            "node": "Generate Query Embedding2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check for Files": {
+      "main": [
+        [
+          {
+            "node": "Process Each File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {},
+  "tags": [],
+  "active": true
+}

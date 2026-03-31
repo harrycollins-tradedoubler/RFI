@@ -1,0 +1,290 @@
+{
+  "id": "XIxCbfqqUEhLcDWW",
+  "name": "AI Agent Vector DB",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "onboarding-chat",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -192,
+        -32
+      ],
+      "webhookId": "onboarding-chat"
+    },
+    {
+      "parameters": {
+        "jsCode": "// =========================================\n// PREPARE DATA – BRANDED TRACKING ONLY (CLEAN + SIMPLE)\n// =========================================\n\n// Extract user message + history safely\nconst userMessage =\n  $input.item.json.body?.message ||\n  $input.item.json.message ||\n  \"\";\n\nconst conversationHistory =\n  $input.item.json.body?.conversationHistory ||\n  $input.item.json.conversationHistory ||\n  [];\n\nconst previousData =\n  $input.item.json.body?.onboardingData ||\n  $input.item.json.onboardingData ||\n  {};\n\nconst chatID = `chat-${Date.now()}`;\n\n// =========================================\n// SYSTEM PROMPT BASE\n// =========================================\n\nlet systemPrompt = `You are a friendly Tradedoubler onboarding assistant.\n\nPERSONALITY:\n- Warm, polite, and professional\n- Ask ONE question at a time\n- Keep responses short unless delivering the branded tracking intro\n- Assume the advertiser knows NOTHING technical\n\nSTRICT RULES:\n- FIRST: Ask for name\n- THEN: Ask for company\n- THEN: Send the full branded tracking introduction ONCE\n- The branded intro MUST begin with \"Hi <Name>!\"\n- The branded intro MUST include the request for their website URL\n- NEVER detect or mention any domain before the branded intro is sent\n- After user provides website → ALWAYS generate:\n      visit.<domain>\n      statics.<domain>\n- ALWAYS lowercase domain\n- NEVER ask “do these look correct”\n- ALWAYS say the domains have been passed to the Tech Team\n- STOP after sending the branded domains; no further onboarding steps\n\nCONTEXT:\nName: ${previousData.clientName || \"Unknown\"}\nCompany: ${previousData.companyName || \"Unknown\"}\n`;\n\n\n// =========================================\n// STAGE SELECTION\n// =========================================\n\nlet currentStage = \"ask_name\";\n\nif (previousData.clientName && !previousData.companyName) {\n  currentStage = \"ask_company\";\n}\nelse if (previousData.clientName && previousData.companyName && !previousData.brandedIntroSentExplicitly) {\n  currentStage = \"branded_intro\";\n}\nelse if (previousData.brandedIntroSentExplicitly && !previousData.rootDomain) {\n  currentStage = \"await_domain\";\n}\nelse if (previousData.rootDomain && !previousData.subdomainsGenerated) {\n  currentStage = \"generate_subdomains\";\n}\n\n\n// =========================================\n// STAGE OUTPUT\n// =========================================\n\n// 1️⃣ ASK NAME\nif (currentStage === \"ask_name\") {\n  systemPrompt += `\nAsk: \"Hi! I'm here to help you get your Tradedoubler tracking set up. What's your name?\"\nWAIT.\n`;\n}\n\n// 2️⃣ ASK COMPANY\nelse if (currentStage === \"ask_company\") {\n  systemPrompt += `\nAsk: \"Nice to meet you, ${previousData.clientName}! Which company are you with?\"\nWAIT.\n`;\n}\n\n// 3️⃣ SEND FULL BRANDED TRACKING INTRO\nelse if (currentStage === \"branded_intro\") {\n  systemPrompt += `\nSay EXACTLY:\n\n\"Hi ${previousData.clientName}!\n\nAs part of the onboarding process there's a few technical elements that need to be finalised before we can launch the programs across the Tradedoubler Network.\n\nBranded Tracking\n\nTo combat the increasing challenges of Browser Privacy settings and Adblockers on tracking technology, Tradedoubler has launched Branded Tracking. This solution will mask Tradedoubler tracking scripts under your own domain, preventing them from being disrupted. Branded Tracking also comes with the added benefit of masking publisher click links under your domain as well, creating a more positive user journey for consumers.\n\nTo set this up, we will need two new subdomains — one for ad serving and one for tracking. You don’t need to configure the subdomains on your end; we only require your website domain so we can generate the correct branded domains. Once these domains are registered in our system, our Technical Team will configure them and provide you with the DNS values needed to establish the connection.\n\nPlease could you provide me with the URL to your website?\"\n\nMark: brandedIntroSentExplicitly = true\nSTOP.\n`;\n}\n\n// 4️⃣ WAIT FOR DOMAIN\nelse if (currentStage === \"await_domain\") {\n  systemPrompt += `\nUser should now send their website URL.\nWAIT.\n`;\n}\n\n// 5️⃣ GENERATE SUBDOMAINS + HANDOFF\nelse if (currentStage === \"generate_subdomains\") {\n  const domain = previousData.rootDomain.toLowerCase();\n\n  systemPrompt += `\nSay EXACTLY:\n\n\"Great, thanks! Based on ${domain}, here are your branded tracking domains:\n\n• visit.${domain}\n• statics.${domain}\n\nThese have now been passed to our Technical Team to configure. Once everything is integrated into our system, I'll share the DNS values you’ll need to add on your end.\"\n\nMark: subdomainsGenerated = true\nSTOP.\n`;\n}\n\n\n// =========================================\n// BUILD MESSAGE ARRAY\n// =========================================\n\nconst messages = [{ role: \"system\", content: systemPrompt }];\n\nconversationHistory.forEach(m =>\n  messages.push({\n    role: m.role === \"user\" ? \"user\" : \"assistant\",\n    content: m.content\n  })\n);\n\nmessages.push({ role: \"user\", content: userMessage });\n\n\n// =========================================\n// RETURN OUTPUT\n// =========================================\n\nreturn [{\n  json: {\n    messages,\n    onboardingData: { ...previousData, currentStage },\n    sessionInfo: { chatID }\n  }\n}];\n"
+      },
+      "name": "Prepare Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -16,
+        -32
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.messages[$json.messages.length - 1].content }}",
+        "options": {
+          "systemMessage": "={{ $json.messages.find(m => m.role === 'system')?.content || '' }}"
+        }
+      },
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        192,
+        -32
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ========================================\n// PROCESS DATA – BRANDED TRACKING ONLY (CLEAN + STABLE)\n// ========================================\n\nconst input = $input.item.json;\n\n// Extract AI response safely\nconst aiResponse =\n  input.output ||\n  input.text ||\n  input.response ||\n  JSON.stringify(input);\n\n// Load previous onboarding state\nconst previousData = input.onboardingData || {};\nconst messages = input.messages || [];\n\nconst lastUserMessage = messages.filter(m => m.role === \"user\").pop();\nconst userMessage = (lastUserMessage?.content || \"\").trim();\nconst lower = userMessage.toLowerCase();\n\nlet data = { ...previousData };\n\n\n// ========================================\n// 1. CAPTURE NAME (Flexible)\n// ========================================\nif (!data.clientName) {\n  const match = userMessage.match(/\\b(?:i am|i'm|my name is|this is)\\s+([A-Za-z]+)/i);\n  if (match) {\n    const raw = match[1];\n    data.clientName = raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();\n  }\n}\n\n\n// ========================================\n// 2. CAPTURE COMPANY (Flexible)\n// ========================================\nif (data.clientName && !data.companyName) {\n  const companyMatch = userMessage.match(/\\b(?:work at|from|with|representing)\\s+([A-Za-z0-9&\\s]+)/i);\n  if (companyMatch) {\n    data.companyName = companyMatch[1].trim();\n  }\n}\n\n\n// ========================================\n// 3. DETECT BRANDED INTRO SENT\n// ========================================\nif (\n  aiResponse.includes(\"As part of the onboarding process\") &&\n  aiResponse.includes(\"Branded Tracking\") &&\n  aiResponse.includes(\"provide me with the URL to your website\")\n) {\n  data.brandedIntroSentExplicitly = true;\n}\n\n\n// ========================================\n// 4. CAPTURE DOMAIN ONLY AFTER BRANDED INTRO\n// ========================================\nif (data.brandedIntroSentExplicitly && !data.rootDomain) {\n  const dm = lower.match(/([a-z0-9][a-z0-9-]{0,61}[a-z0-9]\\.[a-z]{2,}(?:\\.[a-z]{2,})?)/);\n  if (dm) {\n    const clean = dm[0].replace(/^(https?:\\/\\/)?(www\\.)?/, \"\");\n    data.rootDomain = clean;\n    data.visitSubdomain = `visit.${clean}`;\n    data.staticsSubdomain = `statics.${clean}`;\n    data.subdomainsGenerated = true;\n  }\n}\n\n\n// ========================================\n// 5. DETECT TECH TEAM HANDOFF\n// ========================================\nif (data.subdomainsGenerated && !data.techTeamNotified) {\n  const resp = aiResponse.toLowerCase();\n  if (\n    resp.includes(\"passed these to our technical team\") ||\n    resp.includes(\"passed these to our tech team\") ||\n    resp.includes(\"i've passed these\")\n  ) {\n    data.techTeamNotified = true;\n  }\n}\n\n\n// ========================================\n// PROGRESS SUMMARY\n// ========================================\nconst progress = {\n  hasName: !!data.clientName,\n  hasCompany: !!data.companyName,\n  brandedIntroSentExplicitly: !!data.brandedIntroSentExplicitly,\n  hasDomain: !!data.rootDomain,\n  subdomainsGenerated: !!data.subdomainsGenerated,\n  techTeamNotified: !!data.techTeamNotified\n};\n\nconst completed = Object.values(progress).filter(Boolean).length;\nconst total = Object.keys(progress).length;\n\n\n// ========================================\n// RETURN CLEAN OUTPUT (SAFE CHATID HANDLING)\n// ========================================\nreturn {\n  response: aiResponse,\n  onboardingData: data,\n  progress,\n  completed,\n  total,\n  percentage: Math.round((completed / total) * 100),\n  chatID: input.sessionInfo?.chatID || previousData.sessionInfo?.chatID || \"\"\n};\n"
+      },
+      "name": "Process Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        992,
+        -32
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1344,
+        -32
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list",
+          "cachedResultName": "gpt-4o"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        80,
+        208
+      ],
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "L4g2aVcKF4eab59w",
+          "name": "OpenAi account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ========================================\n// SIMPLE VALIDATION GATE – BRANDED ONLY\n// ========================================\n\nconst input = $input.item.json;\nlet result = { ...input };\n\n// Extract last user message\nconst messages = input.messages || [];\nconst lastUserMessage = messages.filter(m => m.role === \"user\").pop();\nconst userMessage = (lastUserMessage?.content || \"\").trim();\n\n// OPTIONAL: Light domain warning (non-blocking)\nconst domainMatch = userMessage.match(/([a-z0-9][a-z0-9-]{0,61}[a-z0-9]\\.[a-z]{2,}(?:\\.[a-z]{2,})?)/i);\n\nif (domainMatch) {\n  const cleaned = domainMatch[0].replace(/^(https?:\\/\\/)?(www\\.)?/, \"\");\n  const regex = /^[a-z0-9][a-z0-9\\-]{0,61}[a-z0-9]\\.[a-z]{2,}(?:\\.[a-z]{2,})?$/i;\n  if (!regex.test(cleaned)) {\n    result.validationWarning = \"The domain format looks unusual, please double-check.\";\n  }\n}\n\nresult.validationPassed = true;\nreturn result;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        800,
+        -32
+      ],
+      "name": "Validation Gate"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format Response for Webhook\n\nconst processedData = $input.item.json;\n\nlet response = processedData.response;\nif (typeof response !== 'string') {\n  response = JSON.stringify(response);\n}\n\nreturn {\n  response: response,\n  onboardingData: processedData.onboardingData || {},\n  checklist: processedData.checklist || {},\n  isComplete: processedData.isComplete || false,\n  completionPercentage: processedData.completionPercentage || 0\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1184,
+        -32
+      ],
+      "name": "Format Response"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        608,
+        368
+      ],
+      "name": "Embeddings OpenAI",
+      "credentials": {
+        "openAiApi": {
+          "id": "L4g2aVcKF4eab59w",
+          "name": "OpenAi account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "Searches comprehensive Tradedoubler technical documentation. ALWAYS use this tool when the user asks questions containing: \"why\", \"how\", \"what is\", \"what if\", \"can you explain\", or any question about tracking implementation, branded tracking, DNS setup, GTM, testing, troubleshooting, product feeds, consent management, or technical details. This tool provides accurate documentation that you must use to answer technical questions.",
+        "tableName": {
+          "__rl": true,
+          "value": "documents",
+          "mode": "list",
+          "cachedResultName": "documents"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreSupabase",
+      "typeVersion": 1.3,
+      "position": [
+        416,
+        176
+      ],
+      "name": "Supabase Vector Store1",
+      "credentials": {
+        "supabaseApi": {
+          "id": "b5IZZso0TIYWpJI3",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $json.sessionInfo.chatID }}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        272,
+        272
+      ],
+      "name": "Simple Memory"
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Prepare Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Data": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Validation Gate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Data": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Response": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validation Gate": {
+      "main": [
+        [
+          {
+            "node": "Process Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings OpenAI": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Supabase Vector Store1",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase Vector Store1": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        []
+      ]
+    }
+  },
+  "settings": {},
+  "tags": [],
+  "active": false
+}

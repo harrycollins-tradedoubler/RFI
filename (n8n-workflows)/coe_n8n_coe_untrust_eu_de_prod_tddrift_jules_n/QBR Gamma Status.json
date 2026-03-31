@@ -1,0 +1,124 @@
+{
+  "id": "I569v1l2MS3pVsqp",
+  "name": "QBR Gamma Status",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "qbr-status",
+        "responseMode": "responseNode",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "GET, OPTIONS"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type, Authorization"
+              }
+            ]
+          }
+        }
+      },
+      "name": "Webhook - qbr-status",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        768,
+        448
+      ],
+      "webhookId": "qbr-status-webhook"
+    },
+    {
+      "parameters": {
+        "url": "={{ 'https://public-api.gamma.app/v1.0/generations/' + encodeURIComponent($json.query.generation_id || $json.query.generationId || '') }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-API-KEY",
+              "value": "sk-gamma-yu0Rlej9XYGy0HI3YkWHQsNTbtSBGOCe49TYmtMGVY"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "name": "Gamma Poll",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1056,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": {{ $json.status === \"completed\" }},\n  \"generation_id\": \"{{ $json.generationId || $json.id || \"\" }}\",\n  \"generation_status\": \"{{ ($json.status || \"unknown\").toLowerCase() }}\",\n  \"presentation_url\": \"{{ $json.url || $json.gammaUrl || \"\" }}\",\n  \"edit_url\": \"{{ $json.url || $json.gammaUrl || \"\" }}\",\n  \"pptx_url\": \"{{ $json.fileUrls ? ($json.fileUrls.pptx || \"\") : \"\" }}\",\n  \"pdf_url\": \"{{ $json.fileUrls ? ($json.fileUrls.pdf || \"\") : \"\" }}\",\n  \"credits_deducted\": {{ $json.credits ? ($json.credits.deducted ?? \"null\") : \"null\" }},\n  \"credits_remaining\": {{ $json.credits ? ($json.credits.remaining ?? \"null\") : \"null\" }}\n}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "GET, OPTIONS"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type, Authorization"
+              }
+            ]
+          }
+        }
+      },
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1328,
+        448
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook - qbr-status": {
+      "main": [
+        [
+          {
+            "node": "Gamma Poll",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gamma Poll": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {},
+  "tags": [],
+  "active": false
+}

@@ -1,0 +1,387 @@
+{
+  "id": "phVjHHwyhQmBTRS0",
+  "name": "LLM Discovery1 - 20 Query Analysis with Aggregate Summary",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {
+          "responseMode": "responseNodes"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        896,
+        1040
+      ],
+      "name": "When chat message received",
+      "webhookId": "38a27f55-2e1c-466e-be43-523a29eaadf9"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "queries",
+              "name": "queries",
+              "value": "=[\n  {\n    \"id\": 1,\n    \"client_id\": \"MARKS_ELEC_001\",\n    \"client_name\": \"markselectrical\",\n    \"query_text\": \"best place to buy washing machines online UK\",\n    \"category\": \"product_specific\"\n  },\n  {\n    \"id\": 2,\n    \"client_id\": \"MARKS_ELEC_001\",\n    \"client_name\": \"markselectrical\",\n    \"query_text\": \"where to buy fridges online UK\",\n    \"category\": \"product_specific\"\n  },\n  {\n    \"id\": 3,\n    \"client_id\": \"MARKS_ELEC_001\",\n    \"client_name\": \"markselectrical\",\n    \"query_text\": \"best dishwasher deals UK\",\n    \"category\": \"product_specific\"\n  },\n  {\n    \"id\": 4,\n    \"client_id\": \"MARKS_ELEC_001\",\n    \"client_name\": \"markselectrical\",\n    \"query_text\": \"cheapest place to buy kitchen appliances\",\n    \"category\": \"price_focused\"\n  },\n  {\n    \"id\": 5,\n    \"client_id\": \"MARKS_ELEC_001\",\n    \"client_name\": \"markselectrical\",\n    \"query_text\": \"best online electrical retailers UK\",\n    \"category\": \"brand_discovery\"\n  },\n  {\n    \"id\": 6,\n    \"client_id\": \"MARKS_ELEC_001\",\n    \"client_name\": \"markselectrical\",\n    \"query_text\": \"most reliable appliance retailers\",\n    \"category\": \"trust_focused\"\n  },\n  {\n    \"id\": 7,\n    \"client_id\": \"MARKS_ELEC_001\",\n    \"client_name\": \"markselectrical\",\n    \"query_text\": \"Marks Electrical vs AO.com vs Currys\",\n    \"category\": \"comparison\"\n  },\n  {\n    \"id\": 8,\n    \"client_id\": \"MARKS_ELEC_001\",\n    \"client_name\": \"markselectrical\",\n    \"query_text\": \"where to buy Bosch washing machines\",\n    \"category\": \"brand_specific\"\n  },\n  {\n    \"id\": 9,\n    \"client_id\": \"MARKS_ELEC_001\",\n    \"client_name\": \"markselectrical\",\n    \"query_text\": \"best prices on fridge freezers\",\n    \"category\": \"price_focused\"\n  },\n  {\n    \"id\": 10,\n    \"client_id\": \"MARKS_ELEC_001\",\n    \"client_name\": \"markselectrical\",\n    \"query_text\": \"where to buy built in ovens UK\",\n    \"category\": \"product_specific\"\n  }\n]",
+              "type": "array"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Query Dataset1",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [
+        1056,
+        1040
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const queries = $input.first().json.queries;\nreturn queries;"
+      },
+      "name": "Split Into Items1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1216,
+        1040
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "query_data",
+              "name": "query_data",
+              "value": "={{ $json }}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Set Query Context2",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [
+        1584,
+        1040
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.query_data.query_text }}",
+        "options": {
+          "systemMessage": "You are a helpful AI assistant answering a consumer's question about where to shop.\n\nProvide your top 10 retailer recommendations for their query.\n\nReturn ONLY valid JSON (no markdown, no preamble, no trailing commentary).\n\nSchema:\n{\n  \"query\": \"<repeat user query verbatim>\",\n  \"country\": \"UK\",\n  \"ranked_retailers\": [\n    { \"rank\": 1, \"name\": \"\", \"domain\": \"\", \"reason\": \"\", \"evidence_type\": \"\" }\n  ],\n  \"notes\": \"\"\n}\n\nRules:\n- ranked_retailers MUST contain EXACTLY 10 objects with rank 1..10 (integers)\n- name: retailer brand name only\n- domain: UK domain if known, otherwise \"\"\n- reason: why you're recommending them (8-25 words)\n- evidence_type: primary reason for recommendation, MUST be one of:\n  \"price\", \"trust\", \"range\", \"delivery\", \"installation\", \"returns\", \"warranty\", \"finance\", \"reviews\", \"availability\", \"speed\", \"other\"\n- Output must be valid JSON that parses\n- Recommend retailers naturally based on the query - do not artificially exclude or favor any retailer"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        1760,
+        1040
+      ],
+      "name": "Query LLM1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const queryData = $('Set Query Context2').first().json.query_data;\n\n// Capture the LLM output as a string\nconst raw =\n  (typeof $json.output === 'string' && $json.output) ||\n  (typeof $json.text === 'string' && $json.text) ||\n  (typeof $json.response === 'string' && $json.response) ||\n  JSON.stringify($json);\n\n// Parse JSON safely (handles accidental wrapping text)\nfunction safeJsonParse(s) {\n  try {\n    return { ok: true, value: JSON.parse(s) };\n  } catch (e) {\n    const start = s.indexOf('{');\n    const end = s.lastIndexOf('}');\n    if (start !== -1 && end !== -1 && end > start) {\n      const slice = s.slice(start, end + 1);\n      try {\n        return { ok: true, value: JSON.parse(slice) };\n      } catch (e2) {\n        return { ok: false, error: String(e2), extracted: slice };\n      }\n    }\n    return { ok: false, error: String(e), extracted: null };\n  }\n}\n\n// Canonical brand normalization map\nconst CANON = [\n  {\n    canonical: 'Marks Electrical',\n    domain: 'markselectrical.co.uk',\n    aliases: [\n      'marks electrical',\n      'markselectrical',\n      'marks electrical ltd',\n      'marks electrical limited',\n      'markselectrical.co.uk',\n      'marks electrical (markselectrical.co.uk)'\n    ]\n  },\n  { canonical: 'AO', domain: 'ao.com', aliases: ['ao', 'ao.com', 'ao (ao.com)', 'ao.com (ao)'] },\n  { canonical: 'Currys', domain: 'currys.co.uk', aliases: ['currys', 'currys pc world', 'currys pcworld', 'currys (currys.co.uk)'] },\n  { canonical: 'Argos', domain: 'argos.co.uk', aliases: ['argos', 'argos (argos.co.uk)'] },\n  { canonical: 'John Lewis & Partners', domain: 'johnlewis.com', aliases: ['john lewis', 'john lewis & partners', 'john lewis and partners', 'johnlewis', 'john lewis (johnlewis.com)'] },\n  { canonical: 'Appliances Direct', domain: 'appliancesdirect.co.uk', aliases: ['appliances direct', 'appliance direct', 'appliancesdirect'] },\n  { canonical: 'Amazon', domain: 'amazon.co.uk', aliases: ['amazon', 'amazon uk', 'amazon.co.uk', 'amazon.co.uk (amazon)'] },\n  { canonical: 'Very', domain: 'very.co.uk', aliases: ['very', 'very.co.uk'] },\n  { canonical: 'B&Q', domain: 'diy.com', aliases: ['b&q', 'b and q', 'bandq', 'diy.com'] },\n  { canonical: 'Euronics', domain: 'euronics.co.uk', aliases: ['euronics', 'euronics uk', 'euronics.co.uk'] },\n  { canonical: 'Tesco', domain: 'tesco.com', aliases: ['tesco', 'tesco.com'] },\n  { canonical: 'eBay', domain: 'ebay.co.uk', aliases: ['ebay', 'ebay uk', 'ebay.co.uk'] }\n];\n\nconst norm = (s) => (s || '').toString().trim().toLowerCase();\n\nfunction canonicalize(name, domain) {\n  const n = norm(name);\n  const d = norm(domain);\n\n  for (const b of CANON) {\n    if (b.aliases.some(a => n === norm(a) || n.includes(norm(a)))) {\n      return { canonical: b.canonical, domain: b.domain };\n    }\n    if (d && norm(b.domain) === d) {\n      return { canonical: b.canonical, domain: b.domain };\n    }\n  }\n\n  // fallback: strip parenthetical domain or notes\n  const cleaned = (name || '').replace(/\\s*\\([^)]*\\)\\s*/g, '').trim();\n  return { canonical: cleaned || (name || ''), domain: domain || '' };\n}\n\nconst parsed = safeJsonParse(raw);\nconst data = parsed.ok ? parsed.value : null;\n\nconst ranked = Array.isArray(data?.ranked_retailers) ? data.ranked_retailers : [];\n\nconst formatCompliance =\n  parsed.ok &&\n  data &&\n  data.country === 'UK' &&\n  ranked.length === 10 &&\n  ranked.every((x, i) =>\n    Number.isInteger(x.rank) &&\n    x.rank === i + 1 &&\n    typeof x.name === 'string' &&\n    typeof x.domain === 'string' &&\n    typeof x.reason === 'string' &&\n    typeof x.evidence_type === 'string'\n  );\n\n// Canonicalize ranked retailers\nconst rankedCanonical = ranked.map(item => {\n  const c = canonicalize(item.name, item.domain);\n  return {\n    rank: item.rank,\n    name_raw: item.name || '',\n    domain_raw: item.domain || '',\n    name: c.canonical,\n    domain: c.domain || item.domain || '',\n    reason: item.reason || '',\n    evidence_type: item.evidence_type || 'other'\n  };\n});\n\n// Client detection (robust)\nconst clientEntry = CANON.find(b => b.canonical === 'Marks Electrical');\nconst clientAliases = clientEntry ? clientEntry.aliases.map(norm) : [norm(queryData.client_name), 'marks electrical', 'markselectrical'];\n\nconst isClient = (brandOrDomain) => {\n  const t = norm(brandOrDomain);\n  if (!t) return false;\n  if (clientAliases.some(a => a && t.includes(a))) return true;\n  if (t.includes('markselectrical.co.uk')) return true;\n  return false;\n};\n\n// Determine mention + position\nlet brandMentioned = false;\nlet brandPosition = null;\n\nfor (const r of rankedCanonical) {\n  if (isClient(r.name) || isClient(r.domain) || isClient(r.name_raw) || isClient(r.domain_raw)) {\n    brandMentioned = true;\n    brandPosition = r.rank;\n    break;\n  }\n}\n\n// Extract competitor mentions (canonical names, in rank order, excluding client)\nconst competitorMentions = rankedCanonical\n  .filter(r => r.name && !isClient(r.name) && !isClient(r.domain))\n  .map(r => r.name);\n\n// Dedupe competitor list but preserve order\nconst seen = new Set();\nconst competitorMentionsDedup = competitorMentions.filter(n => {\n  const key = norm(n);\n  if (!key) return false;\n  if (seen.has(key)) return false;\n  seen.add(key);\n  return true;\n});\n\nreturn {\n  query_id: queryData.id,\n  client_id: queryData.client_id,\n  client_name: queryData.client_name,\n  query_text: queryData.query_text,\n  query_category: queryData.category,\n  llm_platform: 'chatgpt',\n  model_version: 'gpt-4o',\n  response_raw: raw,\n  response_json_ok: parsed.ok,\n  response_json_error: parsed.ok ? null : parsed.error,\n  response_extracted_json: parsed.ok ? null : parsed.extracted,\n  response_format_compliance: formatCompliance,\n  response_structured: data,\n  ranked_retailers_canonical: rankedCanonical,\n  brand_mentioned: brandMentioned,\n  brand_position: brandPosition,\n  competitor_mentions: competitorMentionsDedup,\n  total_competitors_mentioned: competitorMentionsDedup.length,\n  created_at: new Date().toISOString()\n};\n"
+      },
+      "name": "Parse LLM Response1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2032,
+        1040
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const analysisData = $('Parse LLM Response1').first().json;\n\n// Extract deeper insights from LLM response\nconst rankedRetailers = analysisData.ranked_retailers_canonical || [];\n\n// 1. Evidence Signal Deep Dive\nconst competitorValueProps = {};\nrankedRetailers.forEach(retailer => {\n  // Check if this is the client\n  const isClient = retailer.name.toLowerCase().includes('marks') || \n                   retailer.name === 'Marks Electrical' ||\n                   retailer.name === analysisData.client_name;\n  \n  if (isClient) return; // Skip client\n  \n  if (!competitorValueProps[retailer.name]) {\n    competitorValueProps[retailer.name] = {\n      total_mentions: 0,\n      evidence_signals: {},\n      reasons_given: []\n    };\n  }\n  \n  const brand = competitorValueProps[retailer.name];\n  brand.total_mentions++;\n  \n  const signal = retailer.evidence_type || 'other';\n  brand.evidence_signals[signal] = (brand.evidence_signals[signal] || 0) + 1;\n  brand.reasons_given.push(retailer.reason);\n});\n\n// 2. What value props is client cited for?\nconst clientEvidence = rankedRetailers\n  .filter(r => {\n    const name = r.name.toLowerCase();\n    return name.includes('marks') || name === 'marks electrical' || r.name === analysisData.client_name;\n  })\n  .map(r => r.evidence_type);\n\n// 3. What value props do competitors use?\nconst competitorEvidence = rankedRetailers\n  .filter(r => {\n    const name = r.name.toLowerCase();\n    return !(name.includes('marks') || name === 'marks electrical' || r.name === analysisData.client_name);\n  })\n  .map(r => r.evidence_type);\n\nconst allEvidenceTypes = [...new Set(competitorEvidence)];\nconst clientMissing = allEvidenceTypes.filter(e => !clientEvidence.includes(e));\n\n// 4. Build \"Why They Beat Us\" analysis\nconst whyWeReBehind = clientMissing.map(signal => {\n  const competitorsWithThis = rankedRetailers\n    .filter(r => {\n      const name = r.name.toLowerCase();\n      const notClient = !(name.includes('marks') || name === 'marks electrical' || r.name === analysisData.client_name);\n      return r.evidence_type === signal && notClient;\n    })\n    .slice(0, 3); // Top 3\n  \n  return {\n    value_prop: signal,\n    competitors_leading: competitorsWithThis.map(c => ({\n      name: c.name,\n      reason: c.reason,\n      rank: c.rank\n    })),\n    opportunity: `Client should emphasize ${signal} in messaging`\n  };\n});\n\nreturn {\n  query_id: analysisData.query_id,\n  client_id: analysisData.client_id,\n  client_name: analysisData.client_name,\n  query_text: analysisData.query_text,\n  query_category: analysisData.query_category,\n  llm_platform: analysisData.llm_platform,\n  \n  // Client performance\n  client_visibility: {\n    mentioned: analysisData.brand_mentioned,\n    position: analysisData.brand_position,\n    evidence_cited: clientEvidence[0] || null\n  },\n  \n  // Competitor intelligence\n  competitor_value_props: competitorValueProps,\n  competitors_mentioned: analysisData.competitor_mentions,\n  total_competitors: analysisData.total_competitors_mentioned || (analysisData.competitor_mentions ? analysisData.competitor_mentions.length : 0),\n  \n  // Gap analysis\n  value_prop_gaps: whyWeReBehind,\n  client_missing_signals: clientMissing,\n  \n  // Raw data\n  ranked_retailers: rankedRetailers,\n  llm_response_raw: analysisData.response_raw\n};"
+      },
+      "name": "Analyze LLM Rankings1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2224,
+        1040
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-5-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-5-mini"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        1920,
+        1520
+      ],
+      "name": "OpenAI Model 4",
+      "credentials": {
+        "openAiApi": {
+          "id": "L4g2aVcKF4eab59w",
+          "name": "OpenAi account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const summaryData = $('Generate Summary Report').first().json;\nconst aggregateData = summaryData.full_data;\n\nconst finalReport = {\n  executive_summary: summaryData.output,\n  key_findings: summaryData.key_findings,\n  competitor_analysis: summaryData.competitor_analysis,\n  value_prop_gaps: summaryData.value_prop_gaps,\n  recommendations: summaryData.recommendations,\n  key_metrics: aggregateData.aggregate_metrics,\n  competitor_landscape: aggregateData.competitor_landscape,\n  performance_by_category: aggregateData.performance_by_category,\n  best_performing_queries: aggregateData.best_queries,\n  worst_performing_queries: aggregateData.worst_queries,\n  full_aggregate_data: aggregateData\n};\n\nreturn finalReport;"
+      },
+      "name": "Format Final Report1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1984,
+        1312
+      ]
+    },
+    {
+      "parameters": {
+        "message": "=# LLM Visibility Intelligence Report\n## Marks Electrical - {{ $json.full_aggregate_data.client.total_queries_analyzed }} Queries Analyzed\n\n---\n\n{{ $json.executive_summary }}\n\n---\n\n## Key Metrics\n- **LLM Mention Rate:** {{ $json.key_metrics.llm_mention_rate }}\n- **Times Mentioned:** {{ $json.key_metrics.total_times_mentioned_by_llm }} / {{ $json.full_aggregate_data.client.total_queries_analyzed }}\n- **Average Position When Mentioned:** {{ $json.key_metrics.avg_position_when_mentioned }}\n- **Top 3 Appearances:** {{ $json.key_metrics.times_in_top_3 }} ({{ $json.key_metrics.top_3_rate }})\n\n## Top Competitors in LLM Responses\n{{ $json.competitor_landscape.slice(0, 10).map((c, i) => `${i + 1}. **${c.brand}** - ${c.mentions_across_queries} mentions (${c.mention_rate})`).join('\\n') }}\n\n## Performance by Query Category\n{{ $json.performance_by_category.map(c => `- **${c.category}**: ${c.mention_rate} mention rate, Avg position: ${c.avg_position || 'N/A'}`).join('\\n') }}\n\n## Best Performing Queries\n{{ $json.best_performing_queries.map((q, i) => `${i + 1}. \"${q.query}\" - Position ${q.llm_position} (${q.category})`).join('\\n') }}\n\n## Queries Where Client Not Mentioned\n{{ $json.worst_performing_queries.map((q, i) => `${i + 1}. \"${q.query}\" (${q.category})\\n   Competitors: ${q.top_competitors_mentioned.join(', ')}`).join('\\n\\n') }}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chat",
+      "typeVersion": 1,
+      "position": [
+        2208,
+        1312
+      ],
+      "name": "Respond to Chat2"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "name": "Loop Through Queries2",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1408,
+        1040
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const analysisData = $('Analyze LLM Rankings1').first().json;\nconst aiResponse = $json.output || $json.text || JSON.stringify($json);\n\nconst report = {\n  report_generated_at: new Date().toISOString(),\n  report_type: 'LLM_Publisher_Intelligence',\n  client: {\n    id: analysisData.client_id,\n    name: analysisData.client_name,\n    query_analyzed: analysisData.query_text,\n    query_category: analysisData.query_category\n  },\n  llm_visibility: {\n    client_mentioned: analysisData.client_mentioned_by_llm,\n    client_position: analysisData.client_llm_position,\n    visibility_status: analysisData.visibility_status,\n    competitors_mentioned: analysisData.competitors_mentioned,\n    total_competitors: analysisData.total_competitors\n  },\n  strategic_insight: aiResponse,\n  raw_data: analysisData\n};\n\nreturn report;"
+      },
+      "name": "Format Individual Report2",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2416,
+        1040
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const allReports = $input.all().map(item => item.json);\n\n// First, calculate the existing aggregate metrics\nlet totalPosition = 0;\nlet mentionCount = 0;\nlet top3Count = 0;\nconst competitorMap = {};\nconst categoryMap = {};\n\nallReports.forEach(report => {\n  const category = report.query_category || 'uncategorized';\n\n  if (!categoryMap[category]) {\n    categoryMap[category] = {\n      total: 0,\n      mentioned: 0,\n      position_sum: 0,\n      position_count: 0\n    };\n  }\n  categoryMap[category].total++;\n\n  // Track mentions - safely access client_visibility\n  const clientMentioned = report.client_visibility?.mentioned || false;\n  const clientPosition = report.client_visibility?.position || null;\n\n  if (clientMentioned) {\n    mentionCount++;\n    categoryMap[category].mentioned++;\n\n    if (clientPosition) {\n      totalPosition += clientPosition;\n      categoryMap[category].position_sum += clientPosition;\n      categoryMap[category].position_count++;\n\n      if (clientPosition <= 3) {\n        top3Count++;\n      }\n    }\n  }\n\n  // Track competitors - safely access competitors_mentioned\n  const competitorsList = report.competitors_mentioned || [];\n  const seenInQuery = new Set();\n  \n  competitorsList.forEach(competitor => {\n    const name = (competitor || \"\").trim();\n    if (!name) return;\n\n    const key = name.toLowerCase();\n    if (seenInQuery.has(key)) return;\n    seenInQuery.add(key);\n\n    if (key !== \"markselectrical\" && key !== \"marks electrical\" && !key.includes(\"marks\")) {\n      competitorMap[name] = (competitorMap[name] || 0) + 1;\n    }\n  });\n});\n\n// Aggregate evidence signal patterns\nconst evidenceSignalMap = {\n  price: { count: 0, brands: new Set(), sample_reasons: [] },\n  trust: { count: 0, brands: new Set(), sample_reasons: [] },\n  range: { count: 0, brands: new Set(), sample_reasons: [] },\n  delivery: { count: 0, brands: new Set(), sample_reasons: [] },\n  installation: { count: 0, brands: new Set(), sample_reasons: [] },\n  returns: { count: 0, brands: new Set(), sample_reasons: [] },\n  warranty: { count: 0, brands: new Set(), sample_reasons: [] },\n  finance: { count: 0, brands: new Set(), sample_reasons: [] },\n  reviews: { count: 0, brands: new Set(), sample_reasons: [] },\n  availability: { count: 0, brands: new Set(), sample_reasons: [] },\n  speed: { count: 0, brands: new Set(), sample_reasons: [] },\n  other: { count: 0, brands: new Set(), sample_reasons: [] }\n};\n\n// Track what signals competitors use vs client\nconst clientSignals = new Set();\nconst competitorSignals = {};\n\nallReports.forEach(report => {\n  const clientName = report.client_name || 'markselectrical';\n  \n  // Client signals - safely access\n  if (report.client_visibility?.mentioned && report.client_visibility?.evidence_cited) {\n    clientSignals.add(report.client_visibility.evidence_cited);\n  }\n  \n  // Competitor signals - safely access ranked_retailers\n  const rankedRetailers = report.ranked_retailers || [];\n  \n  rankedRetailers.forEach(retailer => {\n    const signal = retailer.evidence_type || 'other';\n    const brand = retailer.name || '';\n    \n    if (!brand) return;\n    \n    // Check if this is the client\n    const brandLower = brand.toLowerCase();\n    const isClient = brandLower.includes('marks') || \n                     brand === 'Marks Electrical' || \n                     brand === clientName;\n    \n    if (!isClient) {\n      evidenceSignalMap[signal].count++;\n      evidenceSignalMap[signal].brands.add(brand);\n      \n      if (evidenceSignalMap[signal].sample_reasons.length < 3 && retailer.reason) {\n        evidenceSignalMap[signal].sample_reasons.push(retailer.reason);\n      }\n      \n      if (!competitorSignals[brand]) {\n        competitorSignals[brand] = {};\n      }\n      competitorSignals[brand][signal] = (competitorSignals[brand][signal] || 0) + 1;\n    }\n  });\n});\n\n// Convert Sets to Arrays for JSON\nObject.keys(evidenceSignalMap).forEach(signal => {\n  evidenceSignalMap[signal].brands = Array.from(evidenceSignalMap[signal].brands);\n  // Calculate percentage based on total mentions (10 retailers per query)\n  const totalPossibleMentions = allReports.length * 10;\n  evidenceSignalMap[signal].percentage = totalPossibleMentions > 0 \n    ? Math.round((evidenceSignalMap[signal].count / totalPossibleMentions) * 100)\n    : 0;\n});\n\n// Identify gaps\nconst allSignals = Object.keys(evidenceSignalMap);\nconst clientMissingSignals = allSignals.filter(s => \n  !clientSignals.has(s) && evidenceSignalMap[s].count > 0\n);\n\n// Build strategic opportunities\nconst strategicOpportunities = clientMissingSignals\n  .sort((a, b) => evidenceSignalMap[b].count - evidenceSignalMap[a].count)\n  .slice(0, 5)\n  .map(signal => {\n    const data = evidenceSignalMap[signal];\n    return {\n      value_prop: signal,\n      frequency: `${data.percentage}% of LLM responses cite this`,\n      leading_competitors: data.brands.slice(0, 3),\n      example_messaging: data.sample_reasons[0] || `Emphasize ${signal}`,\n      priority: data.count > allReports.length * 3 ? 'HIGH' : 'MEDIUM',\n      action: `Create content emphasizing ${signal}. Example: \"${data.sample_reasons[0] || 'N/A'}\"`\n    };\n  });\n\n// Build competitor landscape\nconst competitorLandscape = Object.entries(competitorMap)\n  .sort((a, b) => b[1] - a[1])\n  .slice(0, 15)\n  .map(([brand, count]) => ({\n    brand,\n    mentions_across_queries: count,\n    mention_rate: Math.round((count / allReports.length) * 100) + \"%\"\n  }));\n\n// Build category performance\nconst performanceByCategory = Object.entries(categoryMap).map(([category, stats]) => ({\n  category,\n  total_queries: stats.total,\n  times_mentioned: stats.mentioned,\n  mention_rate: Math.round((stats.mentioned / stats.total) * 100) + \"%\",\n  avg_position: stats.position_count > 0\n    ? Math.round((stats.position_sum / stats.position_count) * 10) / 10\n    : null\n}));\n\n// Build best/worst queries\nconst bestQueries = allReports\n  .filter(r => r.client_visibility?.mentioned)\n  .sort((a, b) => {\n    const posA = a.client_visibility?.position || 999;\n    const posB = b.client_visibility?.position || 999;\n    return posA - posB;\n  })\n  .slice(0, 5)\n  .map(r => ({\n    query: r.query_text,\n    category: r.query_category,\n    llm_position: r.client_visibility?.position,\n    competitors_in_response: r.total_competitors || 0\n  }));\n\nconst worstQueries = allReports\n  .filter(r => !r.client_visibility?.mentioned)\n  .slice(0, 5)\n  .map(r => ({\n    query: r.query_text,\n    category: r.query_category,\n    top_competitors_mentioned: (r.competitors_mentioned || []).slice(0, 3),\n    total_competitors: r.total_competitors || 0\n  }));\n\nreturn {\n  report_generated_at: new Date().toISOString(),\n  client: {\n    name: allReports[0]?.client_name || 'markselectrical',\n    total_queries_analyzed: allReports.length\n  },\n  \n  aggregate_metrics: {\n    total_times_mentioned_by_llm: mentionCount,\n    llm_mention_rate: Math.round((mentionCount / allReports.length) * 100) + \"%\",\n    avg_position_when_mentioned: mentionCount > 0 ? Math.round((totalPosition / mentionCount) * 10) / 10 : null,\n    times_in_top_3: top3Count,\n    top_3_rate: Math.round((top3Count / allReports.length) * 100) + \"%\"\n  },\n  \n  // NEW: Evidence Signal Intelligence\n  evidence_landscape: evidenceSignalMap,\n  \n  // NEW: What client is missing\n  value_prop_gaps: strategicOpportunities,\n  client_cited_for: Array.from(clientSignals),\n  client_never_cited_for: clientMissingSignals,\n  \n  // NEW: Competitor positioning\n  competitor_strengths: Object.entries(competitorSignals)\n    .map(([brand, signals]) => {\n      const signalEntries = Object.entries(signals);\n      return {\n        brand,\n        total_mentions: Object.values(signals).reduce((a, b) => a + b, 0),\n        primary_strength: signalEntries.length > 0 ? signalEntries.sort((a, b) => b[1] - a[1])[0] : null,\n        all_signals: signals\n      };\n    })\n    .sort((a, b) => b.total_mentions - a.total_mentions)\n    .slice(0, 10),\n  \n  // Existing data\n  competitor_landscape: competitorLandscape,\n  performance_by_category: performanceByCategory,\n  best_queries: bestQueries,\n  worst_queries: worstQueries,\n  detailed_results: allReports\n};"
+      },
+      "name": "Aggregate All Results2",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1472,
+        1312
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const aggregateData = $('Aggregate All Results2').first().json;\n\n// Generate a structured summary without using LLM\nconst report = {\n  executive_summary: generateExecutiveSummary(aggregateData),\n  key_findings: generateKeyFindings(aggregateData),\n  competitor_analysis: generateCompetitorAnalysis(aggregateData),\n  value_prop_gaps: aggregateData.value_prop_gaps || [],\n  recommendations: generateRecommendations(aggregateData)\n};\n\nfunction generateExecutiveSummary(data) {\n  const metrics = data.aggregate_metrics;\n  const topCompetitor = data.competitor_landscape[0];\n  \n  return `Marks Electrical was mentioned in ${metrics.llm_mention_rate} of test queries, with an average position of #${metrics.avg_position_when_mentioned || 'N/A'} when mentioned. ${topCompetitor ? `${topCompetitor.brand} dominates LLM responses with ${topCompetitor.mention_rate} mention rate.` : ''} ${data.client_never_cited_for.length > 0 ? `Key opportunity: Client is never cited for ${data.client_never_cited_for.slice(0, 3).join(', ')}.` : ''}`;\n}\n\nfunction generateKeyFindings(data) {\n  const findings = [];\n  \n  // Finding 1: Overall performance\n  const mentionRate = parseInt(data.aggregate_metrics.llm_mention_rate);\n  if (mentionRate === 0) {\n    findings.push(\"CRITICAL: Client has zero LLM visibility across all test queries\");\n  } else if (mentionRate < 30) {\n    findings.push(`LOW VISIBILITY: Only ${data.aggregate_metrics.llm_mention_rate} mention rate`);\n  } else if (mentionRate < 60) {\n    findings.push(`MODERATE VISIBILITY: ${data.aggregate_metrics.llm_mention_rate} mention rate`);\n  } else {\n    findings.push(`STRONG VISIBILITY: ${data.aggregate_metrics.llm_mention_rate} mention rate`);\n  }\n  \n  // Finding 2: Top competitor dominance\n  if (data.competitor_landscape.length > 0) {\n    const top3 = data.competitor_landscape.slice(0, 3);\n    findings.push(`Top competitors: ${top3.map(c => `${c.brand} (${c.mention_rate})`).join(', ')}`);\n  }\n  \n  // Finding 3: Evidence signal gaps\n  if (data.value_prop_gaps.length > 0) {\n    const topGap = data.value_prop_gaps[0];\n    findings.push(`Biggest gap: ${topGap.value_prop.toUpperCase()} - ${topGap.frequency}, leading brands: ${topGap.leading_competitors.slice(0, 2).join(', ')}`);\n  }\n  \n  // Finding 4: Category performance\n  const categoryPerf = data.performance_by_category || [];\n  const bestCategory = categoryPerf.sort((a, b) => parseInt(b.mention_rate) - parseInt(a.mention_rate))[0];\n  const worstCategory = categoryPerf.sort((a, b) => parseInt(a.mention_rate) - parseInt(b.mention_rate))[0];\n  \n  if (bestCategory) {\n    findings.push(`Best category: ${bestCategory.category} (${bestCategory.mention_rate})`);\n  }\n  if (worstCategory && worstCategory !== bestCategory) {\n    findings.push(`Worst category: ${worstCategory.category} (${worstCategory.mention_rate})`);\n  }\n  \n  return findings;\n}\n\nfunction generateCompetitorAnalysis(data) {\n  const competitors = data.competitor_strengths || [];\n  \n  return competitors.slice(0, 5).map(comp => {\n    const primaryStrength = comp.primary_strength;\n    const strengthName = primaryStrength ? primaryStrength[0] : 'unknown';\n    const strengthCount = primaryStrength ? primaryStrength[1] : 0;\n    \n    return {\n      brand: comp.brand,\n      total_mentions: comp.total_mentions,\n      primary_value_prop: strengthName,\n      strength_frequency: strengthCount,\n      insight: `${comp.brand} leads on ${strengthName.toUpperCase()} (cited ${strengthCount} times)`\n    };\n  });\n}\n\nfunction generateRecommendations(data) {\n  const recommendations = [];\n  \n  // Recommendation 1: Address top value prop gaps\n  if (data.value_prop_gaps && data.value_prop_gaps.length > 0) {\n    data.value_prop_gaps.slice(0, 3).forEach((gap, i) => {\n      recommendations.push({\n        priority: gap.priority,\n        category: 'Content & Messaging',\n        action: `Emphasize ${gap.value_prop.toUpperCase()} in homepage and category pages`,\n        rationale: `Competitors are cited for this ${gap.frequency}. Leading brands: ${gap.leading_competitors.slice(0, 2).join(', ')}`,\n        example: gap.example_messaging,\n        expected_impact: `Could capture additional mentions in ${gap.value_prop}-focused queries`\n      });\n    });\n  }\n  \n  // Recommendation 2: FAQ Schema\n  const queriesNotMentioned = data.worst_queries || [];\n  if (queriesNotMentioned.length > 0) {\n    const commonQuestionTypes = [...new Set(queriesNotMentioned.map(q => q.category))];\n    recommendations.push({\n      priority: 'HIGH',\n      category: 'Technical SEO',\n      action: 'Add FAQ Schema to key landing pages',\n      rationale: `Client not mentioned in ${queriesNotMentioned.length} queries. FAQ schema improves LLM parsing.`,\n      example: `Create FAQ sections for: ${commonQuestionTypes.slice(0, 3).join(', ')} queries`,\n      expected_impact: 'Increases likelihood of being cited for question-based queries'\n    });\n  }\n  \n  // Recommendation 3: Comparison content\n  const topCompetitors = data.competitor_landscape.slice(0, 3);\n  if (topCompetitors.length > 0) {\n    recommendations.push({\n      priority: 'MEDIUM',\n      category: 'Content Creation',\n      action: 'Create comparison pages for top competitors',\n      rationale: `${topCompetitors[0].brand} mentioned in ${topCompetitors[0].mention_rate} of queries`,\n      example: `Create pages: \"Marks Electrical vs ${topCompetitors.map(c => c.brand).join('\", \"Marks Electrical vs ')}\"`,\n      expected_impact: 'Captures comparison-focused queries and establishes competitive positioning'\n    });\n  }\n  \n  // Recommendation 4: Evidence-based content\n  const evidenceLandscape = data.evidence_landscape || {};\n  const topSignals = Object.entries(evidenceLandscape)\n    .sort((a, b) => b[1].count - a[1].count)\n    .slice(0, 3)\n    .filter(([signal, data]) => data.count > 0);\n  \n  if (topSignals.length > 0) {\n    recommendations.push({\n      priority: 'MEDIUM',\n      category: 'Content Enhancement',\n      action: 'Structure content around high-value evidence signals',\n      rationale: `LLMs most frequently cite: ${topSignals.map(([s, d]) => `${s} (${d.percentage}%)`).join(', ')}`,\n      example: `Add dedicated sections for each signal with clear headers and structured content`,\n      expected_impact: 'Aligns content with what LLMs look for when making recommendations'\n    });\n  }\n  \n  return recommendations;\n}\n\nreturn {\n  output: report.executive_summary,\n  key_findings: report.key_findings,\n  competitor_analysis: report.competitor_analysis,\n  value_prop_gaps: report.value_prop_gaps,\n  recommendations: report.recommendations,\n  full_data: aggregateData\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        1312
+      ],
+      "name": "Generate Summary Report"
+    }
+  ],
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "Query Dataset1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Through Queries": {
+      "main": [
+        [
+          {
+            "node": "Aggregate All Results",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set Query Context1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query Dataset1": {
+      "main": [
+        [
+          {
+            "node": "Split Into Items1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Into Items1": {
+      "main": [
+        [
+          {
+            "node": "Loop Through Queries2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Query Context2": {
+      "main": [
+        [
+          {
+            "node": "Query LLM1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query LLM1": {
+      "main": [
+        [
+          {
+            "node": "Parse LLM Response1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse LLM Response1": {
+      "main": [
+        [
+          {
+            "node": "Analyze LLM Rankings1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze LLM Rankings1": {
+      "main": [
+        [
+          {
+            "node": "Format Individual Report2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Model 4": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Query LLM1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Final Report1": {
+      "main": [
+        [
+          {
+            "node": "Respond to Chat2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Through Queries2": {
+      "main": [
+        [
+          {
+            "node": "Aggregate All Results2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set Query Context2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Individual Report2": {
+      "main": [
+        [
+          {
+            "node": "Loop Through Queries2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate All Results2": {
+      "main": [
+        [
+          {
+            "node": "Generate Summary Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Summary Report": {
+      "main": [
+        [
+          {
+            "node": "Format Final Report1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {},
+  "tags": [],
+  "active": false
+}

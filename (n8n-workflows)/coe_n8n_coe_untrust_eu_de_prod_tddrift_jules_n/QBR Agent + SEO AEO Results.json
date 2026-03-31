@@ -1,0 +1,791 @@
+{
+  "id": "nbmq2WHjTHILE6kt",
+  "name": "QBR Agent + SEO AEO Results",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {
+          "responseMode": "responseNodes"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -1104,
+        416
+      ],
+      "name": "When chat message received",
+      "webhookId": "d9864d49-694f-499b-8840-62535151ab50"
+    },
+    {
+      "parameters": {
+        "resource": "worksheet",
+        "operation": "readRows",
+        "workbook": {
+          "__rl": true,
+          "value": "016IEPKXTALTFVRAAS5ZGKF7KTDBSSUUVU",
+          "mode": "list",
+          "cachedResultName": "statistic-program (1)",
+          "cachedResultUrl": "https://tradedoublergroup-my.sharepoint.com/personal/harry_collins_tradedoubler_com/_layouts/15/Doc.aspx?sourcedoc=%7B58CB5C60-1280-4CEE-A2FD-5318652A52B4%7D&file=statistic-program%20(1).xlsx&action=default&mobileredirect=true&DefaultItemOpen=1"
+        },
+        "worksheet": {
+          "__rl": true,
+          "value": "{00000000-0001-0000-0000-000000000000}",
+          "mode": "list",
+          "cachedResultName": "Worksheet",
+          "cachedResultUrl": "https://tradedoublergroup-my.sharepoint.com/personal/harry_collins_tradedoubler_com/_layouts/15/Doc.aspx?sourcedoc=%7B58CB5C60-1280-4CEE-A2FD-5318652A52B4%7D&file=statistic-program%20(1).xlsx&action=default&mobileredirect=true&DefaultItemOpen=1&activeCell=Worksheet!A1"
+        },
+        "options": {}
+      },
+      "name": "Excel: Get Current Period",
+      "type": "n8n-nodes-base.microsoftExcel",
+      "position": [
+        -544,
+        144
+      ],
+      "typeVersion": 2,
+      "credentials": {
+        "microsoftExcelOAuth2Api": {
+          "id": "E3yG3eQSTfJEDfeA",
+          "name": "Microsoft Excel account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "worksheet",
+        "operation": "readRows",
+        "workbook": {
+          "__rl": true,
+          "value": "016IEPKXUC63QD63E2WNFLBLCOIFAB2TFH",
+          "mode": "list",
+          "cachedResultName": "statistic-program (2)",
+          "cachedResultUrl": "https://tradedoublergroup-my.sharepoint.com/personal/harry_collins_tradedoubler_com/_layouts/15/Doc.aspx?sourcedoc=%7B3FE0F682-9A6C-4AB3-B0AC-4E41401D4CA7%7D&file=statistic-program%20(2).xlsx&action=default&mobileredirect=true&DefaultItemOpen=1"
+        },
+        "worksheet": {
+          "__rl": true,
+          "value": "{00000000-0001-0000-0000-000000000000}",
+          "mode": "list",
+          "cachedResultName": "Worksheet",
+          "cachedResultUrl": "https://tradedoublergroup-my.sharepoint.com/personal/harry_collins_tradedoubler_com/_layouts/15/Doc.aspx?sourcedoc=%7B3FE0F682-9A6C-4AB3-B0AC-4E41401D4CA7%7D&file=statistic-program%20(2).xlsx&action=default&mobileredirect=true&DefaultItemOpen=1&activeCell=Worksheet!A1"
+        },
+        "options": {}
+      },
+      "name": "Excel: Get Previous Period",
+      "type": "n8n-nodes-base.microsoftExcel",
+      "position": [
+        -304,
+        144
+      ],
+      "typeVersion": 2,
+      "credentials": {
+        "microsoftExcelOAuth2Api": {
+          "id": "E3yG3eQSTfJEDfeA",
+          "name": "Microsoft Excel account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process YoY Data  (REPLACE with this version that outputs a YoY table pack)\n\nconst currentData = $('Excel: Get Current Period').first().json;\nconst previousData = $('Excel: Get Previous Period').first().json;\n\nfunction safeNum(x) {\n  const n = Number(x);\n  return Number.isFinite(n) ? n : 0;\n}\n\nfunction pct(a, b) {\n  if (!b) return null;\n  return (a / b) * 100;\n}\n\nfunction fmtInt(x) {\n  return Math.round(x).toLocaleString();\n}\nfunction fmtMoney0(x) {\n  return `£${Math.round(x).toLocaleString()}`;\n}\nfunction fmtMoney2(x) {\n  return `£${Number(x).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;\n}\nfunction fmtPct2(x) {\n  if (x === null || x === undefined || Number.isNaN(x)) return \"\";\n  return `${Number(x).toFixed(2)}%`;\n}\nfunction fmtVar1(x) {\n  if (x === null || x === undefined || Number.isNaN(x)) return \"\";\n  const v = Number(x);\n  return `${v >= 0 ? \"+\" : \"\"}${v.toFixed(1)}%`;\n}\n\nfunction calc(d) {\n  const clicks = safeNum(d.clicks);\n  const sales = safeNum(d.sales);\n  const orderValue = safeNum(d.orderValue);\n  const aov = sales ? (orderValue / sales) : 0;\n\n  const pubCommission = safeNum(d.publisherCommission);\n  const tdCommission = safeNum(d.tdCommission);\n  const totalCommission = pubCommission + tdCommission;\n\n  // If your sheet has cost or spend, map it here; otherwise keep 0\n  const cost = safeNum(d.cost ?? d.spend ?? d.mediaCost ?? 0);\n\n  const convRate = clicks ? pct(sales, clicks) : 0;                // %\n  const cpa = sales ? (totalCommission / sales) : 0;               // £ per sale (commission CPA)\n  const roi = totalCommission ? (orderValue / totalCommission) : 0; // ratio\n\n  return {\n    clicks, sales, convRate, orderValue, aov,\n    pubCommission, totalCommission,\n    cpa, roi\n  };\n}\n\nconst cur = calc(currentData);\nconst prev = calc(previousData);\n\nfunction diff(a, b) { return a - b; }\nfunction varPct(a, b) { return b ? ((a - b) / b * 100) : null; }\n\nconst rows = [\n  {\n    Row: \"Recent\",\n    Clicks: fmtInt(cur.clicks),\n    Sales: fmtInt(cur.sales),\n    \"Conv Rate\": fmtPct2(cur.convRate),\n    \"Order value\": fmtMoney0(cur.orderValue),\n    \"AOV\": fmtMoney2(cur.aov),\n    \"Publ Commission\": fmtMoney0(cur.pubCommission),\n    \"Total Commission\": fmtMoney0(cur.totalCommission),\n    \"CPA\": fmtMoney2(cur.cpa),\n    \"ROI\": cur.roi ? cur.roi.toFixed(2) : \"\"\n  },\n  {\n    Row: \"Previous\",\n    Clicks: fmtInt(prev.clicks),\n    Sales: fmtInt(prev.sales),\n    \"Conv Rate\": fmtPct2(prev.convRate),\n    \"Order value\": fmtMoney0(prev.orderValue),\n    \"AOV\": fmtMoney2(prev.aov),\n    \"Publ Commission\": fmtMoney0(prev.pubCommission),\n    \"Total Commission\": fmtMoney0(prev.totalCommission),\n    \"CPA\": fmtMoney2(prev.cpa),\n    \"ROI\": prev.roi ? prev.roi.toFixed(2) : \"\"\n  },\n  {\n    Row: \"Difference\",\n    Clicks: (diff(cur.clicks, prev.clicks) >= 0 ? \"+\" : \"\") + fmtInt(diff(cur.clicks, prev.clicks)),\n    Sales: (diff(cur.sales, prev.sales) >= 0 ? \"+\" : \"\") + fmtInt(diff(cur.sales, prev.sales)),\n    \"Conv Rate\": fmtPct2(diff(cur.convRate, prev.convRate)),\n    \"Order value\": (diff(cur.orderValue, prev.orderValue) >= 0 ? \"+\" : \"\") + fmtMoney0(diff(cur.orderValue, prev.orderValue)).replace(\"£\", \"£\"),\n    \"AOV\": fmtMoney2(diff(cur.aov, prev.aov)),\n    \"Publ Commission\": (diff(cur.pubCommission, prev.pubCommission) >= 0 ? \"+\" : \"\") + fmtMoney0(diff(cur.pubCommission, prev.pubCommission)).replace(\"£\", \"£\"),\n    \"Total Commission\": (diff(cur.totalCommission, prev.totalCommission) >= 0 ? \"+\" : \"\") + fmtMoney0(diff(cur.totalCommission, prev.totalCommission)).replace(\"£\", \"£\"),\n    \"CPA\": fmtMoney2(diff(cur.cpa, prev.cpa)),\n    \"ROI\": diff(cur.roi, prev.roi).toFixed(2)\n  },\n  {\n    Row: \"% Variance\",\n    Clicks: fmtVar1(varPct(cur.clicks, prev.clicks)),\n    Sales: fmtVar1(varPct(cur.sales, prev.sales)),\n    \"Conv Rate\": fmtVar1(varPct(cur.convRate, prev.convRate)),\n    \"Order value\": fmtVar1(varPct(cur.orderValue, prev.orderValue)),\n    \"AOV\": fmtVar1(varPct(cur.aov, prev.aov)),\n    \"Publ Commission\": fmtVar1(varPct(cur.pubCommission, prev.pubCommission)),\n    \"Total Commission\": fmtVar1(varPct(cur.totalCommission, prev.totalCommission)),\n    \"CPA\": fmtVar1(varPct(cur.cpa, prev.cpa)),\n    \"ROI\": fmtVar1(varPct(cur.roi, prev.roi))\n  }\n];\n\nconst dataForAI = `Program YoY Summary Table (Recent vs Previous)\\n${JSON.stringify(rows, null, 2)}`;\n\nreturn [{\n  json: {\n    dataForAI,\n    programYoYTable: rows\n  }\n}];\n"
+      },
+      "name": "Process YoY Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -32,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{$json.dataForAI}}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nAs an expert affiliate marketing analyst at Tradedoubler, analyze this year-over-year program performance.\n\nProvide:\n\n**1. EXECUTIVE SUMMARY** (2-3 sentences)\n   • Overall performance trajectory (growth/decline/stable)\n   • Key highlight or primary concern\n\n**2. TOP INSIGHTS** (3-4 bullet points)\n   • Identify biggest movers (positive and negative)\n   • Flag metrics above/below benchmarks\n   • Note efficiency changes\n\n**3. DETAILED ANALYSIS**\n   • Traffic trends\n   • Conversion performance\n   • Revenue economics\n\n**4. RECOMMENDATIONS** (3-5 actionable items)\n   • Prioritize by impact\n   • Be specific and tactical\n   • Focus on optimization opportunities\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n**Industry Benchmarks:**\n• Good CTR: 1.5-3%\n• Good CVR: 2-5%\n• Healthy Take Rate: 10-20%\n• Significant change: >20% YoY\n\nBe concise, data-driven, and actionable.",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are an expert affiliate marketing analyst at Tradedoubler with 10+ years experience. You specialize in year-over-year performance analysis, identifying trends, and providing actionable recommendations. You understand KPIs like CTR, CVR, EPC, take rate, AOV, and can compare them against industry benchmarks. You're direct, insightful, and focused on driving business outcomes."
+        }
+      },
+      "name": "AI Agent: Analyze Performance",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        320,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "worksheet",
+        "operation": "readRows",
+        "workbook": {
+          "__rl": true,
+          "value": "016IEPKXTALTFVRAAS5ZGKF7KTDBSSUUVU",
+          "mode": "list",
+          "cachedResultName": "statistic-program (1)",
+          "cachedResultUrl": "https://tradedoublergroup-my.sharepoint.com/personal/harry_collins_tradedoubler_com/_layouts/15/Doc.aspx?sourcedoc=%7B58CB5C60-1280-4CEE-A2FD-5318652A52B4%7D&file=statistic-program%20(1).xlsx&action=default&mobileredirect=true&DefaultItemOpen=1"
+        },
+        "worksheet": {
+          "__rl": true,
+          "value": "{19A61FE6-40E2-4040-847B-3180CE2A2964}",
+          "mode": "list",
+          "cachedResultName": "Publisher",
+          "cachedResultUrl": "https://tradedoublergroup-my.sharepoint.com/personal/harry_collins_tradedoubler_com/_layouts/15/Doc.aspx?sourcedoc=%7B58CB5C60-1280-4CEE-A2FD-5318652A52B4%7D&file=statistic-program%20(1).xlsx&action=default&mobileredirect=true&DefaultItemOpen=1&activeCell=Publisher!A1"
+        },
+        "options": {}
+      },
+      "name": "Excel: Get Publisher Rows1",
+      "type": "n8n-nodes-base.microsoftExcel",
+      "position": [
+        -544,
+        464
+      ],
+      "typeVersion": 2,
+      "credentials": {
+        "microsoftExcelOAuth2Api": {
+          "id": "E3yG3eQSTfJEDfeA",
+          "name": "Microsoft Excel account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process Publisher QBR Pack - YoY Comparison Between Two Excel Sheets\n// UPDATED: Now filters tiny-base publishers to prevent misleading growth percentages\n\nfunction safeNum(x) {\n  const n = Number(x);\n  return Number.isFinite(n) ? n : 0;\n}\n\nfunction fmtMoney0(x) {\n  return `£${Math.round(x).toLocaleString()}`;\n}\n\nfunction fmtInt(x) {\n  return Math.round(x).toLocaleString();\n}\n\nfunction fmtYoY(x) {\n  if (x === null || x === undefined || Number.isNaN(x)) return \"N/A\";\n  const v = Number(x);\n  if (!Number.isFinite(v)) return \"N/A\";\n  return `${v >= 0 ? \"+\" : \"\"}${v.toFixed(1)}%`;\n}\n\n// ═══════════════════════════════════════════════════════════\n// CONFIGURATION\n// ═══════════════════════════════════════════════════════════\nconst MINIMUM_PREVIOUS_OV = 2000; // £2k threshold\n// ═══════════════════════════════════════════════════════════\n// STEP 1: Get Current Period Data\n// ═══════════════════════════════════════════════════════════\nconst currentRows = $('Excel: Get Publisher Rows1').all().map(i => i.json);\n\n// ═══════════════════════════════════════════════════════════\n// STEP 2: Get Previous Period Data\n// ═══════════════════════════════════════════════════════════\nconst previousRows = $('Excel: Get Publisher Rows 2025').all().map(i => i.json);\n\n// ═══════════════════════════════════════════════════════════\n// STEP 3: Create Lookup Map for Previous Period\n// ═══════════════════════════════════════════════════════════\nconst previousMap = new Map();\nfor (const row of previousRows) {\n  const pubName = row.sourceName ?? \"Unknown\";\n  previousMap.set(pubName, {\n    prevOV: safeNum(row.orderValue),\n    prevSales: safeNum(row.sales),\n    prevClicks: safeNum(row.clicks),\n    prevPubCommission: safeNum(row.publisherCommission)\n  });\n}\n\n// ═══════════════════════════════════════════════════════════\n// STEP 4: Calculate YoY for Each Publisher\n// ═══════════════════════════════════════════════════════════\nconst rows = currentRows.map(d => {\n  const publisher = d.sourceName ?? \"Unknown\";\n  const currentOV = safeNum(d.orderValue);\n  const currentSales = safeNum(d.sales);\n  const currentClicks = safeNum(d.clicks);\n  const currentPubComm = safeNum(d.publisherCommission);\n  \n  // Get previous period data (or default to 0)\n  const prev = previousMap.get(publisher) || { \n    prevOV: 0, \n    prevSales: 0, \n    prevClicks: 0,\n    prevPubCommission: 0\n  };\n  \n  // Calculate ABSOLUTE YoY changes (£ difference)\n  const ovYoYAbsolute = currentOV - prev.prevOV;\n  const salesYoYAbsolute = currentSales - prev.prevSales;\n  const clicksYoYAbsolute = currentClicks - prev.prevClicks;\n  \n  // Calculate PERCENTAGE YoY changes\n  const ovYoYPercent = prev.prevOV > 0 \n    ? ((currentOV - prev.prevOV) / prev.prevOV * 100) \n    : null;\n  \n  const salesYoYPercent = prev.prevSales > 0\n    ? ((currentSales - prev.prevSales) / prev.prevSales * 100)\n    : null;\n  \n  // Calculate CPA\n  const cpa = currentSales > 0 ? (currentPubComm / currentSales) : 0;\n  \n  // Classify growth category\n  let growthCategory = \"Established\";\n  if (prev.prevOV < MINIMUM_PREVIOUS_OV && prev.prevOV > 0) {\n    growthCategory = \"New/Emerging\";\n  } else if (prev.prevOV === 0) {\n    growthCategory = \"Brand New\";\n  } else if (ovYoYPercent > 500) {\n    growthCategory = \"Explosive Growth\";\n  } else if (ovYoYPercent > 100) {\n    growthCategory = \"High Growth\";\n  } else if (ovYoYPercent > 25) {\n    growthCategory = \"Growing\";\n  } else if (ovYoYPercent < -25) {\n    growthCategory = \"Declining\";\n  }\n  \n  return {\n    publisher,\n    // Current period data\n    ov: currentOV,\n    sales: currentSales,\n    clicks: currentClicks,\n    pubCommission: currentPubComm,\n    cpa,\n    // YoY changes\n    ovYoYAbsolute,\n    ovYoYPercent,\n    salesYoYAbsolute,\n    salesYoYPercent,\n    clicksYoYAbsolute,\n    // Previous period baseline\n    prevOV: prev.prevOV,\n    // Classification\n    growthCategory\n  };\n});\n\n// ═══════════════════════════════════════════════════════════\n// STEP 5: Separate Established vs New/Emerging Publishers\n// ═══════════════════════════════════════════════════════════\n\n// Established publishers (previous OV >= £10k OR decliners)\nconst establishedRows = rows.filter(r => {\n  return r.prevOV >= MINIMUM_PREVIOUS_OV || r.ovYoYAbsolute < 0;\n});\n\n// New/Emerging publishers (previous OV < £10k AND positive growth)\nconst newEmergingRows = rows.filter(r => {\n  return r.prevOV < MINIMUM_PREVIOUS_OV && r.prevOV > 0 && r.ovYoYAbsolute > 0;\n});\n\n// Brand new publishers (no previous data)\nconst brandNewRows = rows.filter(r => r.prevOV === 0);\n\n// ═══════════════════════════════════════════════════════════\n// STEP 6: Generate Top 10 Tables (Using Established Publishers)\n// ═══════════════════════════════════════════════════════════\n\n// 1. TOP 10 YoY OV INCREASE (by absolute £ change - ESTABLISHED ONLY)\nconst top10Increase = establishedRows\n  .filter(r => r.ovYoYAbsolute > 0)\n  .sort((a, b) => b.ovYoYAbsolute - a.ovYoYAbsolute)\n  .slice(0, 10)\n  .map(r => ({\n    Publisher: r.publisher,\n    \"Current OV\": fmtMoney0(r.ov),\n    \"Previous OV\": fmtMoney0(r.prevOV),\n    \"YoY Change £\": fmtMoney0(r.ovYoYAbsolute),\n    \"YoY %\": fmtYoY(r.ovYoYPercent),\n    \"Sales\": fmtInt(r.sales)\n  }));\n\n// 2. TOP 10 YoY OV DECREASE (by absolute £ change)\nconst top10Decrease = establishedRows\n  .filter(r => r.ovYoYAbsolute < 0)\n  .sort((a, b) => a.ovYoYAbsolute - b.ovYoYAbsolute)\n  .slice(0, 10)\n  .map(r => ({\n    Publisher: r.publisher,\n    \"Current OV\": fmtMoney0(r.ov),\n    \"Previous OV\": fmtMoney0(r.prevOV),\n    \"YoY Change £\": fmtMoney0(r.ovYoYAbsolute),\n    \"YoY %\": fmtYoY(r.ovYoYPercent),\n    \"Sales\": fmtInt(r.sales)\n  }));\n\n// 3. TOP 10 PUBLISHERS BY CURRENT OV (ALL publishers)\nconst top10ByOV = rows\n  .sort((a, b) => b.ov - a.ov)\n  .slice(0, 10)\n  .map(r => ({\n    Publisher: r.publisher,\n    \"Order Value\": fmtMoney0(r.ov),\n    \"Sales\": fmtInt(r.sales),\n    \"Pub Commission\": fmtMoney0(r.pubCommission),\n    \"CPA\": r.cpa > 0 ? fmtMoney0(r.cpa) : \"N/A\",\n    \"YoY %\": fmtYoY(r.ovYoYPercent),\n    \"Category\": r.growthCategory\n  }));\n\n// 4. TOP 10 NEW/EMERGING PUBLISHERS (separate table)\nconst top10NewEmerging = newEmergingRows\n  .sort((a, b) => b.ov - a.ov) // Sort by current OV\n  .slice(0, 10)\n  .map(r => ({\n    Publisher: r.publisher,\n    \"Current OV\": fmtMoney0(r.ov),\n    \"Previous OV\": fmtMoney0(r.prevOV),\n    \"Absolute Growth\": fmtMoney0(r.ovYoYAbsolute),\n    \"Sales\": fmtInt(r.sales),\n    \"Status\": r.prevOV < 5000 ? \"Brand New Activation\" : \"Rapid Scale-Up\"\n  }));\n\n// 5. BRAND NEW PUBLISHERS (no previous data)\nconst top10BrandNew = brandNewRows\n  .sort((a, b) => b.ov - a.ov)\n  .slice(0, 10)\n  .map(r => ({\n    Publisher: r.publisher,\n    \"Current OV\": fmtMoney0(r.ov),\n    \"Sales\": fmtInt(r.sales),\n    \"CPA\": r.cpa > 0 ? fmtMoney0(r.cpa) : \"N/A\"\n  }));\n\n// ═══════════════════════════════════════════════════════════\n// STEP 7: Segment Analysis\n// ═══════════════════════════════════════════════════════════\nfunction inferSegment(nameRaw) {\n  const name = String(nameRaw || \"\").toLowerCase();\n  if (/(css|google shopping|comparison|compare|idealo|shoparize|genie shopping)/.test(name)) \n    return \"CSS\";\n  if (/(which|techradar|trustedreviews|guardian|telegraph|independent|media|content)/.test(name)) \n    return \"Content\";\n  if (/(voucher|coupon|deal|discount|hotukdeals|vouchercodes)/.test(name)) \n    return \"Voucher\";\n  if (/(cashback|quidco|topcashback)/.test(name)) \n    return \"Cashback\";\n  return \"Other\";\n}\n\nconst segmentPerformance = {};\nfor (const r of establishedRows) { // Use established only for segment analysis\n  const seg = inferSegment(r.publisher);\n  if (!segmentPerformance[seg]) {\n    segmentPerformance[seg] = { ov: 0, ovYoYChange: 0, sales: 0, count: 0 };\n  }\n  segmentPerformance[seg].ov += r.ov;\n  segmentPerformance[seg].ovYoYChange += r.ovYoYAbsolute;\n  segmentPerformance[seg].sales += r.sales;\n  segmentPerformance[seg].count += 1;\n}\n\nconst segmentSummary = Object.entries(segmentPerformance)\n  .map(([seg, data]) => ({\n    Segment: seg,\n    \"Total OV\": fmtMoney0(data.ov),\n    \"YoY Change £\": fmtMoney0(data.ovYoYChange),\n    \"YoY %\": fmtYoY(data.ov > 0 && data.ovYoYChange !== 0 \n      ? (data.ovYoYChange / (data.ov - data.ovYoYChange) * 100) \n      : null),\n    \"Publishers\": data.count\n  }))\n  .sort((a, b) => segmentPerformance[b.Segment].ov - segmentPerformance[a.Segment].ov);\n\n// ═══════════════════════════════════════════════════════════\n// STEP 8: Prepare Output for AI\n// ═══════════════════════════════════════════════════════════\nconst dataForAI = {\n  // Established publisher insights\n  top10Increase,\n  top10Decrease,\n  top10ByOV,\n  segmentSummary,\n  \n  // New/Emerging publisher insights\n  top10NewEmerging,\n  top10BrandNew,\n  \n  // Summary statistics\n  totalPublishers: rows.length,\n  establishedPublishers: establishedRows.length,\n  newEmergingPublishers: newEmergingRows.length,\n  brandNewPublishers: brandNewRows.length,\n  publishersWithGrowth: establishedRows.filter(r => r.ovYoYAbsolute > 0).length,\n  publishersWithDecline: establishedRows.filter(r => r.ovYoYAbsolute < 0).length,\n  \n  // Context notes\n  dataQualityNote: `Analysis separates ${establishedRows.length} established publishers (£10k+ previous OV) from ${newEmergingRows.length} new/emerging partners (small base) and ${brandNewRows.length} brand new activations to prevent misleading growth percentages.`,\n  \n  topGrowthSegment: segmentSummary[0]?.Segment || \"N/A\"\n};\n\nreturn [{\n  json: {\n    publisherPerformanceTables: {\n      // Main tables (established publishers)\n      top10Increase,\n      top10Decrease,\n      top10ByOV,\n      segmentSummary,\n      \n      // Separate tables for new publishers\n      top10NewEmerging,\n      top10BrandNew\n    },\n    dataForAI: JSON.stringify(dataForAI, null, 2),\n    \n    // Metadata for debugging\n    metadata: {\n      minimumPreviousOVThreshold: MINIMUM_PREVIOUS_OV,\n      totalPublishers: rows.length,\n      establishedPublishers: establishedRows.length,\n      newEmergingPublishers: newEmergingRows.length,\n      brandNewPublishers: brandNewRows.length\n    }\n  }\n}];"
+      },
+      "name": "Process Publisher QBR Pack1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -160,
+        464
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=={{$json.dataForAI}}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n**DATA CONTEXT AND QUALITY NOTES:**\n\nThe publisher data has been segmented into three categories to prevent misleading growth analysis:\n\n1. **Established Publishers** (£10k+ previous OV) - Used for YoY growth/decline analysis in \"Top 10 Increase\" and \"Top 10 Decrease\" tables\n2. **New/Emerging Publishers** (<£10k previous OV) - Shown in separate \"Top 10 New/Emerging\" table - these are rapid scale-ups from tiny bases\n3. **Brand New Publishers** (no previous data) - Shown in separate \"Top 10 Brand New\" table - fresh activations this period\n\n**CRITICAL ANALYSIS APPROACH:**\n\nWhen discussing \"Growth Drivers\":\n- Analyze the \"Top 10 Increase (Established Publishers)\" table for strategic YoY insights\n- These publishers had meaningful previous baselines (£10k+) so their growth is sustainable and scalable\n- Focus on absolute £ growth AND percentage growth together\n\nWhen discussing \"New/Emerging Publishers\":\n- Treat the \"Top 10 New/Emerging\" table as new partner activations, NOT traditional YoY growth stories\n- Frame as: \"New activations showing strong initial traction\" rather than \"explosive YoY growth\"\n- Note: Extreme percentages (500%+, 1000%+) indicate they scaled from £1k-5k bases (new partnerships)\n- Flag these for monitoring - they're unproven at scale and may be test campaigns\n\nWhen discussing \"Performance Declines\":\n- Use \"Top 10 Decrease\" table which includes all established publishers\n- Root cause analysis: algorithm changes, market shifts, seasonality, competitive pressure\n\n**WRITING GUIDELINES:**\n\nDO write:\n- \"Among established publishers, [Publisher X] leads growth with £50k increase from £200k base (+25%)\"\n- \"[Publisher Y] shows strong initial traction (£140k from £3k base) as a new CSS activation - monitor for sustainability\"\n\nDO NOT write:\n- \"Publisher Y achieved 4,600% YoY growth\" (misleading - tiny base effect)\n- \"Replicate Publisher Y's strategy across the network\" (unproven at scale)\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nYou are preparing a **Publisher Performance Analysis** for a Tradedoubler QBR.\n\nFocus on ACTIONABLE insights, not publisher categorization. Avoid suggesting segment cuts.\n\nStructure your analysis as follows:\n\n## Publisher Performance Analysis\n\n### 1. Growth Drivers (Established Publishers)\nAnalyze the **Top 10 YoY Increase (Established Publishers)** table:\n- Which established publishers are driving the most absolute growth?\n- What do top performers have common? (CSS dominance? Content partnerships? Voucher sites?)\n- Note both absolute £ growth AND percentage growth\n- CONCLUSION: \"[Segment] is driving your YoY growth, contributing £X increase\"\n\n### 2. New Partner Activations & Emerging Opportunities\nAnalyze the **Top 10 New/Emerging Publishers** table:\n- Which new partnerships show strong initial traction?\n- What publisher types are scaling fastest from activation?\n- Flag for monitoring: Are these sustainable or test campaigns?\n- CONCLUSION: \"[X] new activations show promise, contributing £Y, but require [monitoring period] to validate performance\"\n\n### 3. Performance Declines\nAnalyze the **Top 10 YoY Decrease** table:\n- Which established publishers declined the most (absolute values)?\n- Root cause analysis (Google algorithm updates? Market changes? Competition?)\n- CONCLUSION: \"[Segment] is declining, potentially due to [reason]\"\n\n### 4. Current Top Performers (All Publishers)\nAnalyze the **Top 10 by Current OV** table:\n- Who are your absolute largest revenue drivers?\n- How efficient are they? (Look at CPA if available)\n- Are your top performers also growing YoY, or are they stagnating?\n- Note the \"Category\" column to identify growth stage\n\n### 5. Segment Insights (High-Level Only)\nFrom the segment summary:\n- Which publisher segments contribute most to revenue?\n- Which segments show strongest growth vs decline?\n- NO negative commentary about specific segments like \"consider removing cashback/vouchers\"\n\n### 6. Strategic Recommendations (4-6 actions)\nFocus on:\n- **Scale established high-performers**: Which established publishers with proven track records can be scaled further?\n- **Monitor new activations**: Which new/emerging publishers need 30-60 day validation before major investment?\n- **Decline mitigation**: How to support declining established publishers (new creatives? better commission structure? seasonal campaigns?)\n- **Efficiency improvements**: Which high-OV publishers have high CPA that could be optimized?\n- **Category expansion**: Based on new activations, which publisher types show opportunity for more recruitment?\n\n**DO NOT recommend:**\n- Cutting or removing any publisher segments\n- \"Replicating\" strategies from new/emerging publishers (unproven at scale)\n- Major investment in publishers with <3 months track record\n\n**DO recommend:**\n- Scaling tactics for established high-performers\n- Validation periods for new activations before scaling\n- Efficiency improvements for high-volume, high-CPA publishers\n- Diversification opportunities based on segment gaps\n\n**Tone**: Consultative, growth-focused, evidence-based. Frame declines as opportunities to improve, not reasons to exit.",
+        "options": {
+          "systemMessage": "You are an expert affiliate marketing analyst at Tradedoubler. You write QBR-ready performance analysis by publisher type and provide tactical, realistic actions."
+        }
+      },
+      "name": "AI Agent: Publisher QBR1",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        0,
+        464
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build Final Response - COMPLETE v2.0\n// Handles Program YoY, Publisher Performance, and Visibility Analysis\n\n// Get all items from the merge (3 branches)\nconst allItems = $input.all().map(item => item.json);\n\n// Extract data from each branch\nconst programData = allItems.find(item => item.programOutput) || {};\nconst publisherData = allItems.find(item => item.publisherAnalysis) || {};\nconst visibilityData = allItems.find(item => item.visibilityAnalysis) || {};\n\n// === PROGRAM YOY DATA ===\nconst program = programData.programOutput || \"(No program analysis returned)\";\nconst programYoYTable = programData.programYoYTable || [];\n\n// === PUBLISHER DATA ===\nconst publisherAnalysis = publisherData.publisherAnalysis || \"(No publisher analysis returned)\";\nconst publisherTables = publisherData.publisherTables || {};\n\n// === VISIBILITY DATA ===\nconst visibilityAnalysis = visibilityData.visibilityAnalysis || \"\";\nconst opportunities = visibilityData.opportunityData || [];\n\n// ═══════════════════════════════════════════════════════════\n// HELPER FUNCTION: Create Markdown Tables\n// ═══════════════════════════════════════════════════════════\nfunction mdTable(rows) {\n  if (!rows || !rows.length) return \"(no data)\";\n  const headers = Object.keys(rows[0]);\n  const sep = headers.map(() => \"---\");\n  return [\n    `| ${headers.join(\" | \")} |`,\n    `| ${sep.join(\" | \")} |`,\n    ...rows.map(r => `| ${headers.map(h => String(r[h] ?? \"\")).join(\" | \")} |`)\n  ].join(\"\\n\");\n}\n\n// ═══════════════════════════════════════════════════════════\n// SECTION 1: PROGRAM YOY ANALYSIS\n// ═══════════════════════════════════════════════════════════\nconst programTableMd = mdTable(programYoYTable);\n\nconst section1 = `\n## 1️⃣ Program YoY Analysis\n${program}\n\n### YoY Summary Table\n${programTableMd}\n`;\n\n// ═══════════════════════════════════════════════════════════\n// SECTION 2: PUBLISHER PERFORMANCE ANALYSIS\n// ═══════════════════════════════════════════════════════════\nconst publisherTablesMd = publisherTables.top10Increase \n  ? `\n### Top 10 YoY Growth (Absolute £ Increase)\n${mdTable(publisherTables.top10Increase || [])}\n\n### Top 10 YoY Decline (Absolute £ Decrease)\n${mdTable(publisherTables.top10Decrease || [])}\n\n### Top 10 Current Performers (By Order Value)\n${mdTable(publisherTables.top10ByOV || [])}\n\n### Segment Overview\n${mdTable(publisherTables.segmentSummary || [])}\n`\n  : \"(No publisher performance data)\";\n\nconst section2 = `\n## 2️⃣ Publisher Performance Analysis\n${publisherAnalysis}\n\n${publisherTablesMd}\n`;\n\n// ═══════════════════════════════════════════════════════════\n// SECTION 3: STRATEGIC VISIBILITY & OPPORTUNITY ANALYSIS\n// ═══════════════════════════════════════════════════════════\nlet section3 = \"\";\n\nif (visibilityAnalysis) {\n  // Top 10 opportunities table\n  const topOpps = opportunities.slice(0, 10);\n  const oppTableMd = topOpps.length \n    ? mdTable(topOpps.map(o => ({\n        Domain: o.domain || \"N/A\",\n        Position: o.position || \"N/A\",\n        Type: o.publisherType || \"N/A\",\n        Score: o.opportunityScore || 0,\n        Action: o.actionType || \"N/A\",\n        \"In Network\": o.inNetwork ? \"✅\" : \"❌\"\n      })))\n    : \"(No opportunities identified)\";\n\n  section3 = `\n## 3️⃣ Strategic Visibility & Opportunity Analysis\n${visibilityAnalysis}\n\n### Top 10 Visibility Opportunities\n${oppTableMd}\n`;\n}\n\n// ═══════════════════════════════════════════════════════════\n// FINAL QBR OUTPUT\n// ═══════════════════════════════════════════════════════════\nreturn [{\n  json: {\n    output:\n`# 📊 QUARTERLY BUSINESS REVIEW\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n${section1}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n${section2}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n${section3}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n## 🎯 Executive Summary & Next Steps\n\n### Key Highlights Across All Analyses:\n\n**Program Performance:**\n- ${programYoYTable.length > 0 && programYoYTable[3] ? programYoYTable[3][\"Order value\"] : \"Review order value trends\"}\n\n**Publisher Performance:**\n- ${publisherTables.top10Increase && publisherTables.top10Increase.length > 0 \n    ? `Top growth driver: ${publisherTables.top10Increase[0].Publisher}` \n    : \"Review publisher growth\"}\n\n**Visibility & Opportunities:**\n- ${opportunities.length > 0 \n    ? `${opportunities.filter(o => !o.inNetwork).length} high-value recruitment targets identified` \n    : \"Visibility analysis pending\"}\n\n### Priority Actions:\n1. **Immediate** (Next 30 days): Review top growth/decline drivers from publisher analysis\n2. **Short-term** (Next 60 days): Execute visibility recruitment strategy for high-score domains\n3. **Ongoing**: Monitor conversion rate optimization and CPA trends from program YoY\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n**Report Generated:** ${new Date().toLocaleDateString('en-GB', { \n  day: 'numeric', \n  month: 'long', \n  year: 'numeric' \n})}\n\n*This QBR was auto-generated by Tradedoubler's AI-powered analytics system.*`\n  }\n}];"
+      },
+      "name": "Build Final Response1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1584,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "message": "={{$json.output}}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chat",
+      "typeVersion": 1,
+      "position": [
+        1776,
+        272
+      ],
+      "name": "Respond to Chat"
+    },
+    {
+      "parameters": {
+        "model": "gpt-4o",
+        "options": {
+          "maxTokens": 3000,
+          "temperature": 0.3
+        }
+      },
+      "name": "OpenAI GPT-1",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1,
+      "position": [
+        1504,
+        1072
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "L4g2aVcKF4eab59w",
+          "name": "OpenAi account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Tag Program Output  (UPDATE to also pass the table)\nreturn [{\n  json: {\n    programOutput: $json.output ?? \"\",\n    programYoYTable: $node[\"Process YoY Data\"].json.programYoYTable ?? []\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        656,
+        144
+      ],
+      "name": "Tag Program Output"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Tag Publisher Output - UPDATED\nreturn [{\n  json: {\n    publisherAnalysis: $json.output ?? \"\",\n    publisherTables: $node[\"Process Publisher QBR Pack1\"].json.publisherPerformanceTables ?? {}\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        336,
+        464
+      ],
+      "name": "Tag Publisher Output"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Simplified - always run everything\nconst incomingText =\n  $json?.message?.text ??\n  $json?.chatInput ??\n  $json?.text ??\n  \"\";\n\nreturn [{\n  json: {\n    incomingText\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -912,
+        416
+      ],
+      "name": "split data"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract Brand Context - UPDATED FOR MARKS ELECTRICAL\nconst chatText = $json.incomingText || \"\";\n\n// Default brand context for Marks Electrical\nlet brandName = \"Marks Electrical\";\nlet category = \"electrical appliances\";\nlet market = \"UK\";\nlet competitors = [\"AO.com\", \"Currys\", \"John Lewis\", \"Appliances Direct\"];\n\n// Parse from chat if user provides override\nconst brandMatch = chatText.match(/brand[:\\s]+([A-Z][a-zA-Z0-9\\s]+)/i);\nif (brandMatch) brandName = brandMatch[1].trim();\n\nconst categoryMatch = chatText.match(/category[:\\s]+([a-z\\s&]+)/i);\nif (categoryMatch) category = categoryMatch[1].trim();\n\nconst marketMatch = chatText.match(/market[:\\s]+([A-Z]{2,})/i);\nif (marketMatch) market = marketMatch[1].trim();\n\nreturn [{\n  json: {\n    brandName,\n    category,\n    market,\n    competitors\n  }\n}];"
+      },
+      "name": "Extract Brand Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -640,
+        848
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generate Search Queries\nconst brand = $json.brandName;\nconst category = $json.category;\nconst market = $json.market;\nconst competitors = $json.competitors || [];\n\nconst year = new Date().getFullYear();\n\n// Add UK-specific terms\nconst marketSuffix = market === \"UK\" ? \" UK\" : \"\";\n\nconst queries = [\n  // COMMERCIAL (High affiliate value)\n  { query: `best ${category} ${year}${marketSuffix}`, type: \"commercial\", priority: \"high\" },\n  { query: `${brand} discount code ${market}`, type: \"commercial\", priority: \"high\" },\n  { query: `${brand} voucher code ${market}`, type: \"commercial\", priority: \"high\" },\n  \n  // INFORMATIONAL (AEO)\n  { query: `is ${brand} reliable${marketSuffix}`, type: \"informational\", priority: \"high\" },\n  { query: `${brand} review ${year}${marketSuffix}`, type: \"informational\", priority: \"medium\" },\n  \n  // COMPARISON\n  { query: `${brand} vs ${competitors[0]}${marketSuffix}`, type: \"comparison\", priority: \"high\" }\n];\n\nreturn queries.map(q => ({ json: q }));"
+      },
+      "name": "Generate Search Queries",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -400,
+        848
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "name": "Loop Through Queries",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -176,
+        848
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://google.serper.dev/search",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "={{$json.query}}"
+            },
+            {
+              "name": "gl",
+              "value": "uk"
+            },
+            {
+              "name": "hl",
+              "value": "en"
+            },
+            {
+              "name": "num",
+              "value": "10"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Serper API Search",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        48,
+        960
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "n0BrPzhRCZwJV7T1",
+          "name": "Header Auth account 2"
+        }
+      },
+      "notes": "Free alternative to SerpAPI - get key from serper.dev"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse SERP Results\nconst serpData = $json;\nconst originalQuery = $node[\"Loop Through Queries\"].json.query;\nconst queryType = $node[\"Loop Through Queries\"].json.type;\n\nconst organicResults = serpData.organic || [];\n\nconst parsed = organicResults.slice(0, 10).map((result, idx) => {\n  const url = result.link || \"\";\n  let domain = \"\";\n  try {\n    domain = new URL(url).hostname.replace('www.', '');\n  } catch (e) {\n    domain = \"unknown\";\n  }\n  \n  // ============================================\n  // 🆕 NEW: Extract publish date if available\n  // ============================================\n  let publishDate = null;\n  if (result.date) {\n    publishDate = result.date;\n  } else if (result.snippet) {\n    // Try to extract date from snippet\n    const dateMatch = result.snippet.match(/(\\d{1,2}\\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\\s+\\d{4})/i);\n    if (dateMatch) publishDate = dateMatch[1];\n  }\n  // ============================================\n  \n  return {\n    query: originalQuery,\n    queryType,\n    position: idx + 1,\n    title: result.title || \"\",\n    url,\n    domain,\n    snippet: result.snippet || \"\",\n    publishDate // 🆕 ADDED THIS LINE\n  };\n});\n\nreturn parsed.map(p => ({ json: p }));\n"
+      },
+      "name": "Parse SERP Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        960
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Classify Domains & Score Opportunities\nconst brand = $node[\"Extract Brand Context\"].json.brandName.toLowerCase();\nconst allResults = $json.allResults || [];\n\nfunction classifyDomain(domain, title, snippet) {\n  const d = domain.toLowerCase();\n  const t = (title + \" \" + snippet).toLowerCase();\n  \n  // Publisher type classification\n  if (/(voucher|coupon|discount|code|deal|promo|vouchercodes|vouchercloud|savoo|myvouchercodes)/.test(d)) {\n    return \"voucher_discount\";\n  }\n  if (/(hotukdeals|hukd|slickdeals)/.test(d)) {\n    return \"deal_community\";\n  }\n  if (/(quidco|topcashback|cashback|easyfundraising)/.test(d)) {\n    return \"cashback\";\n  }\n  if (/(bluelight|totum|studentbeans|unidays)/.test(d)) {\n    return \"closed_user_group\";\n  }\n  if (/(idealo|compare|pricerunner|google\\..*\\/shopping)/.test(d)) {\n    return \"css\";\n  }\n  if (/(which\\.co\\.uk|techradar|trustedreviews|t3\\.com|expertreviews|housebeautiful|stuff\\.tv|pocket-lint)/.test(d)) {\n    return \"editorial\";\n  }\n  if (/(trustpilot|reviews\\.co\\.uk|feefo|reevoo)/.test(d)) {\n    return \"review_ugc\";\n  }\n  if (/(reddit|mumsnet|moneysavingexpert|forums?|pistonheads)/.test(d)) {\n    return \"forum_community\";\n  }\n  if (d.includes(brand)) {\n    return \"brand_owned\";\n  }\n  if (/(amazon|argos|currys|johnlewis|very|ebay|asos|ao\\.com|appliancesdirect)/.test(d)) {\n    return \"retailer\";\n  }\n  return \"other\";\n}\n\nfunction extractPageAngle(title) {\n  const t = title.toLowerCase();\n  \n  // Extract key content angle\n  if (/best.*202[56]/.test(t)) {\n    const match = t.match(/best\\s+([a-z\\s]+)\\s+202[56]/);\n    return match ? `best ${match[1].trim()} guide` : \"best guide 2025/2026\";\n  }\n  if (/discount|code|voucher|promo/.test(t)) return \"discount codes\";\n  if (/review/.test(t)) return \"reviews\";\n  if (/vs|versus|compared/.test(t)) return \"comparison\";\n  if (/is\\s+\\w+\\s+(good|legit|worth|reliable)/.test(t)) return \"legitimacy check\";\n  if (/deals|offers/.test(t)) return \"deals\";\n  if (/what\\s+\\w+\\s+to\\s+(avoid|trust|buy)/.test(t)) return \"buyer advice\";\n  if (/trend|shaping|expert/.test(t)) return \"trends & insights\";\n  \n  // Default: take first 3-5 words\n  const words = t.split(' ').filter(w => w.length > 2).slice(0, 4);\n  return words.join(' ') || \"general content\";\n}\n\nfunction formatDomainName(domain) {\n  const d = domain.toLowerCase().replace('www.', '');\n  \n  const domainMap = {\n    'techradar.com': 'TechRadar',\n    'vouchercodes.co.uk': 'VoucherCodes',\n    'hotukdeals.com': 'HotUKDeals',\n    'hukd.com': 'HotUKDeals',\n    'trustpilot.com': 'Trustpilot',\n    'reddit.com': 'Reddit',\n    'which.co.uk': 'Which?',\n    'mumsnet.com': 'Mumsnet',\n    'moneysavingexpert.com': 'Money Saving Expert',\n    'housebeautiful.com': 'House Beautiful',\n    't3.com': 'T3',\n    'yahoo.com': 'Yahoo Finance UK',\n    'uk.finance.yahoo.com': 'Yahoo Finance UK',\n    'markselectrical.co.uk': 'Marks Electrical',\n    'expertreviews.co.uk': 'Expert Reviews',\n    'trustedreviews.com': 'Trusted Reviews',\n    'stuff.tv': 'Stuff',\n    'pocket-lint.com': 'Pocket-lint',\n    'tomsguide.com': 'Tom\\'s Guide',\n    'digitaltrends.com': 'Digital Trends',\n    'cnet.com': 'CNET',\n    'pcmag.com': 'PCMag',\n    'wired.com': 'Wired',\n    'wired.co.uk': 'Wired UK',\n    'theguardian.com': 'The Guardian',\n    'telegraph.co.uk': 'The Telegraph',\n    'independent.co.uk': 'The Independent',\n    'bbc.co.uk': 'BBC',\n    'business-live.co.uk': 'Business Live',\n    'pistonheads.com': 'PistonHeads',\n    'ao.com': 'AO.com',\n    'currys.co.uk': 'Currys',\n    'johnlewis.com': 'John Lewis',\n    'argos.co.uk': 'Argos',\n    'appliancesdirect.co.uk': 'Appliances Direct',\n    'idealo.co.uk': 'Idealo',\n    'pricerunner.co.uk': 'PriceRunner',\n    'savoo.co.uk': 'Savoo',\n    'myvouchercodes.co.uk': 'MyVoucherCodes',\n    'quidco.com': 'Quidco',\n    'topcashback.co.uk': 'TopCashback',\n    'wowcher.co.uk': 'Wowcher',\n    'groupon.co.uk': 'Groupon',\n    'reviews.io': 'Reviews.io',\n    'feefo.com': 'Feefo',\n    'reevoo.com': 'Reevoo',\n    'youtube.com': 'YouTube',\n    'tiktok.com': 'TikTok'\n  };\n  \n  if (domainMap[d]) {\n    return domainMap[d];\n  }\n  \n  // Fallback: capitalize first letter and remove extension\n  const baseDomain = d.split('.')[0];\n  return baseDomain.charAt(0).toUpperCase() + baseDomain.slice(1);\n}\n\nfunction checkFreshness(title, snippet, publishDate) {\n  const text = (title + \" \" + snippet).toLowerCase();\n  const currentYear = new Date().getFullYear();\n  const currentMonth = new Date().toLocaleString('en', { month: 'short' });\n  \n  // Check publish date if available\n  if (publishDate) {\n    const pd = publishDate.toLowerCase();\n    \n    // Very fresh - current month/year\n    if (pd.includes(String(currentYear)) && pd.includes(currentMonth)) {\n      return \"very_fresh\";\n    }\n    // Fresh - within last 3 months\n    if (pd.includes(String(currentYear))) {\n      return \"fresh\";\n    }\n    // Evergreen - old date\n    if (pd.includes(String(currentYear - 1)) || pd.includes(String(currentYear - 2))) {\n      return \"evergreen\";\n    }\n  }\n  \n  // Check content for freshness signals\n  if (text.includes(String(currentYear))) return \"fresh\";\n  if (text.includes(String(currentYear - 1))) return \"fresh\";\n  \n  return \"evergreen\";\n}\n\nfunction calculateOpportunityScore(result) {\n  let score = 0;\n  \n  // Query type value\n  if (result.queryType === \"commercial\") score += 30;\n  else if (result.queryType === \"comparison\") score += 25;\n  else if (result.queryType === \"informational\") score += 20;\n  \n  // Position\n  if (result.position <= 3) score += 25;\n  else if (result.position <= 5) score += 15;\n  else if (result.position <= 10) score += 10;\n  \n  // Publisher type (updated with deal_community)\n  const highValue = [\"voucher_discount\", \"deal_community\", \"editorial\", \"review_ugc\", \"forum_community\"];\n  if (highValue.includes(result.publisherType)) score += 20;\n  \n  // Freshness\n  if (result.freshness === \"very_fresh\") score += 15;\n  else if (result.freshness === \"fresh\") score += 10;\n  else if (result.freshness === \"evergreen\") score += 5;\n  \n  // Assume not in network for now (would need DB lookup)\n  score += 15; // Recruitment opportunity bonus\n  \n  return Math.min(score, 100);\n}\n\nconst classified = allResults.map(r => {\n  const publisherType = classifyDomain(r.domain, r.title, r.snippet);\n  const freshness = checkFreshness(r.title, r.snippet, r.publishDate);\n  const pageAngle = extractPageAngle(r.title);\n  const displayName = formatDomainName(r.domain);\n  const opportunityScore = calculateOpportunityScore({ ...r, publisherType, freshness });\n  \n  return {\n    ...r,\n    publisherType,\n    displayName,\n    pageAngle,\n    freshness,\n    opportunityScore,\n    inNetwork: false, // Would be determined by DB lookup\n    actionType: \"recruit\" // Default assumption\n  };\n});\n\n// Sort by score\nclassified.sort((a, b) => b.opportunityScore - a.opportunityScore);\n\nreturn [{ json: { opportunities: classified } }];"
+      },
+      "name": "Classify & Score Opportunities",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        560,
+        800
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are preparing the **Strategic Visibility & Opportunity Analysis** section for a Tradedoubler client QBR.\n\n**Brand:** {{$node[\"Extract Brand Context\"].json.brandName}}\n**Category:** {{$node[\"Extract Brand Context\"].json.category}}\n**Market:** {{$node[\"Extract Brand Context\"].json.market}}\n\n**Search Results Data:**\n```json\n{{JSON.stringify($json.opportunities, null, 2)}}\n```\n\n---\n\n## CRITICAL DATA USAGE RULES\n\n**YOU MUST ONLY USE DOMAINS THAT APPEAR IN THE SEARCH RESULTS DATA ABOVE.**\n\nRules:\n1. Every domain you mention MUST exist in the `opportunities` array\n2. Extract the `domain` field exactly as provided (e.g., \"reddit.com\", \"trustpilot.com\")\n3. Extract the `title` field to create page context (e.g., \"Reddit – discussion about appliance retailers\")\n4. Extract the `pageAngle` field if available to understand content focus\n5. Extract the `displayName` field if available for readable domain names\n6. NEVER invent, assume, or hallucinate domains that aren't in the data\n7. If you don't have enough domains (less than 5), state: \"Limited SERP data available - only [X] domains analyzed\"\n8. Cross-check every domain name before including it in your analysis\n\n**Example of CORRECT usage:**\n- Data shows: `{\"domain\": \"reddit.com\", \"displayName\": \"Reddit\", \"title\": \"What websites to avoid when buying appliances\"}`\n- Your output: \"Reddit – appliance retailer discussions\"\n\n**Examples of FORBIDDEN behavior:**\n- Adding \"Consumer Reports\" when it's not in the data\n- Adding \"YouTube\" when it's not in the data  \n- Using generic examples like \"TechRadar\" if TechRadar doesn't appear in results\n- Inventing page titles that don't match the actual SERP titles\n\n**MARKET VALIDATION:**\n- You MUST only use domains that operate in the {{$node[\"Extract Brand Context\"].json.market}} market\n- For UK: Expect domains like which.co.uk, reddit.com/r/AskUK, trustpilot.com, hotukdeals.com\n- For UK: UK retailers are AO.com, Currys, Appliances Direct, John Lewis, Argos\n- NEVER use US domains like Consumer Reports, Williams Sonoma, Hagedorn Appliance unless they actually appear in the UK SERP data\n\n---\n\n## OUTPUT STRUCTURE\n\nYou must produce these sections in this exact order:\n\n1. Brand snapshot – LLM citation visibility for [Brand] ([Market])\n2. Top cited domains & pages\n3. Evergreen vs fresh content – what LLMs seem to trust\n4. Role of affiliates vs brand.com\n5. Obvious competitors showing up alongside/above [Brand]\n6. Implications and opportunities for affiliates & content (how an affiliate network could help [Brand])\n\n---\n\n## SECTION 1: BRAND SNAPSHOT – LLM CITATION VISIBILITY FOR [BRAND] ([MARKET])\n\nWrite a 2-3 sentence narrative that sets the scene.\n\n**REQUIRED FORMAT - MUST include this exact phrase:**\n\"Across '[typical query pattern]' in the [Market] market (using live search results as an LLM-citation proxy), [Brand] tends to appear [how/where] than via [brand.com] pages directly. In '[specific query types]', [specific platform types] are prominent.\"\n\n**Example:**\n\"Across 'best electrical appliances 2026' style queries in the UK market (using live search results as an LLM-citation proxy), Marks Electrical appears more via discount and voucher platforms than via markselectrical.co.uk pages directly. In 'Marks Electrical discount code UK' queries, platforms like TechRadar and VoucherCodes are prominent, indicating strong consumer interest in finding deals.\"\n\n**CRITICAL:** The phrase \"(using live search results as an LLM-citation proxy)\" is REQUIRED - do not omit it.\n\n---\n\n## SECTION 2: TOP CITED DOMAINS & PAGES\n\n**STEP 1: Extract ALL domains from the opportunities data**\n\nGo through the `opportunities` array and list every unique domain found. For each:\n- Domain: Extract from `domain` field\n- Display Name: Extract from `displayName` field (if available)\n- Title: Extract from `title` field  \n- Position: Extract from `position` field\n- Publisher Type: Extract from `publisherType` field\n- Freshness: Extract from `freshness` field\n- Page Angle: Extract from `pageAngle` field if available\n- Date: Extract from `publishDate` field if available\n\n**STEP 2: Transform into readable format**\n\nCreate a table with these columns:\n\n| Rank | Domain / page ([Market]-relevant) | Likely content type | Freshness signal |\n|------|-----------------------------------|---------------------|------------------|\n\n**Rank:** Use the position from the data (1-10)\n\n**Domain / page format:**\n- Use `displayName` if available, otherwise transform domain into readable name:\n  - `reddit.com` → \"Reddit\"\n  - `trustpilot.com` → \"Trustpilot\"\n  - `which.co.uk` → \"Which?\"\n  - `hotukdeals.com` → \"HotUKDeals\"\n  - `yahoo.com` → \"Yahoo Finance UK\" (if UK content)\n  - `mumsnet.com` → \"Mumsnet\"\n  - `moneysavingexpert.com` → \"Money Saving Expert\"\n  - `techradar.com` → \"TechRadar\"\n  - `vouchercodes.co.uk` → \"VoucherCodes\"\n  - `housebeautiful.com` → \"House Beautiful\"\n  - `t3.com` → \"T3\"\n\n- Combine with page angle from title:\n  - [Display Name] – \"[extract key phrase from title or pageAngle]\"\n\n**Examples:**\n  - `reddit.com` + title \"What websites to avoid when buying appliances?\" \n    → \"Reddit – appliance retailer discussions\"\n  - `trustpilot.com` + title \"Marks Electrical Reviews\"\n    → \"Trustpilot – Marks Electrical reviews\"\n  - `which.co.uk` + title \"Best stores for home appliances and tech revealed\"\n    → \"Which? – best appliance stores ranking\"\n  - `hotukdeals.com` + title \"Currys Vs Marks Electrical\"\n    → \"HotUKDeals – Currys vs Marks Electrical comparison\"\n  - `techradar.com` + title \"Marks Electrical promo codes in Jan 2026\"\n    → \"TechRadar – Marks Electrical promo codes (UK)\"\n\n**Likely content type:** Map from publisherType field:\n- \"voucher_discount\" → \"Voucher/coupon publisher\"\n- \"deal_community\" → \"Deal community\" or \"Affiliate/coupon community\"\n- \"review_ugc\" → \"Review / UGC reputation\"  \n- \"editorial\" → \"Editorial + affiliate\"\n- \"forum_community\" → \"Forum / UGC community\"\n- \"cashback\" → \"Cashback platform\"\n- \"css\" → \"Price comparison\"\n- \"closed_user_group\" → \"Members-only deals\"\n- \"brand_owned\" → \"Brand direct\"\n- \"retailer\" → \"Retailer (competitor)\"\n\n**Freshness signal - CRITICAL: MUST USE VARIED LANGUAGE**\n\nYou MUST use different freshness language for each entry. Even if multiple entries have similar dates, vary the phrasing. Use this framework:\n\n**For January 2026 voucher codes (entries 1-4):**\n- Entry 1: \"Very fresh (January 2026)\"\n- Entry 2: \"Very fresh (current-month codes)\"\n- Entry 3: \"Fresh (ongoing updates)\"\n- Entry 4: \"Very fresh (Jan 2026 update)\"\n\n**For December 2025 editorial (entries 5-7):**\n- Entry 5: \"Fresh (published last month)\"\n- Entry 6: \"Fresh-ish (published ~1 month ago)\"\n- Entry 7: \"Fresh (December 2025)\"\n\n**For review platforms:**\n- \"Fresh (recent reviews)\"\n- \"Fresh (continuously updated)\"\n- \"Moderately fresh (recent crawl)\"\n\n**For forums/discussions (2+ years old):**\n- \"Evergreen (ongoing discussions)\"\n- \"Evergreen (2022-2024 discussions)\"\n\n**For brand-owned content:**\n- \"Fresh (ongoing updates)\"\n- \"Evergreen (current codes)\"\n\n**Other variation examples:**\n- \"Fresh (published ~2 months ago)\"\n- \"Fresh (recent crawl; ongoing updates)\"\n- \"Moderately fresh (published Q4 2025)\"\n- \"Fresh-ish (recent crawl)\"\n\n**ABSOLUTE RULE:** No two entries should have identical freshness signal text. If you find yourself repeating, use one of the variations above.\n\n**Show top 8-10 domains by opportunity score from the data.**\n\n**After the table, calculate and present the Findability Score:**\n\n**Calculate score internally (do not show calculation):**\n- SERP Position (40 pts): Avg position 1-3=40, 4-6=30, 7-10=20, 11-15=10, 16-20=5\n- Affiliate Coverage (30 pts): 8+ domains=30, 6-7=25, 4-5=20, 2-3=10, 0-1=0\n- Freshness (15 pts): 70%+=15, 50-69%=12, 30-49%=8, 10-29%=4, <10%=0\n- Commercial Intent (15 pts): 5+ query types=15, 3-4=10, 2=5, 0-1=0\n\n**Present ONLY:**\n\n**Score: [X]/100**\n**Rating:** [Excellent (80-100) | Strong (60-79) | Moderate (40-59) | Limited (20-39) | Weak (0-19)]\n\n**One-sentence summary:**\n\"[Brand] shows [rating] findability with [strength] but [weakness].\"\n\n**DO NOT SHOW calculation methodology or point breakdowns.**\n\n---\n\n## SECTION 3: EVERGREEN VS FRESH CONTENT – WHAT LLMs SEEM TO TRUST\n\n**CRITICAL FORMAT REQUIREMENT:** Use short, punchy statements with reasoning in parentheses. DO NOT write full prose paragraphs.\n\nAnalyze content persistence patterns from the actual data:\n\n### Evergreen that keeps ranking (and is easy for LLMs to cite):\n\nLook through the opportunities data for:\n- Domains with `freshness: \"evergreen\"` or old dates (1+ years ago)\n- Forum discussions, comparison posts, established guides\n- Content that appears relevant regardless of year\n\n**REQUIRED FORMAT - Short statements with reasons in parentheses:**\n\n\"[Content type from data]\" that get [pattern] (reason/mechanism).\n\"[Brand] vs [Competitor]\" [content type] that [why they persist] (additional context).\n\n**Example (CORRECT):**\n\"'Best electrical appliances' evergreen buying guides on editorial sites (stable URLs, ongoing updates).\n'Marks Electrical vs AO.com' comparison discussions on Reddit and forums (remain useful regardless of specific models).\"\n\n**Example (INCORRECT - too verbose):**\n\"Forum discussions and comparison posts, such as 'Marks Electrical vs AO.com' on platforms like Reddit, remain useful regardless of the year. These discussions provide ongoing consumer insights and are frequently referenced by AI assistants.\"\n\n### Very fresh (last ~60–90 days) that dominates when the intent is transactional:\n\nLook through the opportunities data for:\n- Domains with recent dates (2024-2026)\n- Voucher/discount sites with `publisherType: \"voucher_discount\"` or `\"deal_community\"`\n- Review platforms with recent activity\n\n**REQUIRED FORMAT - Short statements with actual domains:**\n\n\"[Publisher types from data] updated [frequency] ([Domain 1], [Domain 2], [Domain 3]), which are [characteristic].\n[Platform type from data] that [pattern] ([actual platforms]), [effect on perception].\"\n\n**Example (CORRECT):**\n\"Coupon/discount code hubs updated monthly/weekly (TechRadar, VoucherCodes, HotUKDeals), which are highly 'citeable' for discount-related queries.\nUGC review pages that continually accumulate new reviews (Trustpilot), shaping 'legit/worth it' narratives.\"\n\n**Example (INCORRECT - too verbose):**\n\"Voucher/coupon sites like TechRadar and VoucherCodes, updated recently, are highly 'citeable' for discount-related queries. Review platforms like Trustpilot continually accumulate new reviews, shaping 'legit/worth it' narratives.\"\n\n**CRITICAL:** Keep statements concise. Use parentheses for mechanisms/reasons. Maximum 2 sentences per subsection.\n\n---\n\n## SECTION 4: ROLE OF AFFILIATES VS BRAND.COM\n\nAnalyze the actual data patterns and write THREE narrative paragraphs:\n\n### Paragraph 1 - Discount Query Behavior:\n\nLook at queries with \"discount\", \"code\", \"voucher\" in them. What domains appear?\n\n\"For 'discount code [market]' queries, the SERP footprint is [describe pattern based on actual domains], meaning an LLM is more likely to cite [actual publisher types found] than [Brand]'s own promotions page.\"\n\n### Paragraph 2 - Category Discovery:\n\nLook at queries like \"best [category]\" - what types of publishers appear?\n\n\"For 'best [category] [year]' queries, [publisher types from data] dominate discovery; [Brand] is typically mentioned as [how they appear based on snippets] rather than [brand domain] as a retailer destination.\"\n\n### Paragraph 3 - Trust/Legitimacy:\n\nLook at queries about brand reputation - what appears?\n\n\"For trust/legitimacy queries, [specific platforms from data] are the shortcut source (e.g., [actual example from titles]), often outranking brand-owned messaging.\"\n\n**CRITICAL:** Only reference domains and patterns that actually exist in your data.\n\n---\n\n## SECTION 5: OBVIOUS COMPETITORS SHOWING UP ALONGSIDE/ABOVE [BRAND]\n\nExtract competitor mentions from the actual data:\n\nLook through titles and snippets for competitor brand names. Structure your analysis like this:\n\n**In '[query type]' style lists:** [Competitor 1] and [Competitor 2] routinely appear as [positioning - e.g., 'category leaders', 'price leaders', 'premium options'].\n\n**In '[Brand] vs …' comparisons:** [Main competitor from data] is a common named comparator (and [explain context - e.g., 'actively promotes price matching', 'similar product range', 'competing for same customer segment']).\n\n**Depending on [what factor]:** other frequent category competitors typically include [list competitors found in data].\n\n**Examples based on actual data:**\n\nIf you see \"Currys vs Marks Electrical\" and \"AO.com\" mentions:\n\"In 'best electrical appliances' style lists: AO.com and Currys routinely appear as category leaders with strong brand recognition.\n\nIn 'Marks Electrical vs …' comparisons: AO.com is a common named comparator (and actively promotes delivery services and price competitiveness, creating direct competitive tension).\n\nDepending on product category, other frequent competitors typically include Appliances Direct (online-only pricing), John Lewis (premium positioning), and Argos (convenience-focused).\"\n\n**CRITICAL:** Only mention competitors that actually appear in the SERP data. If no competitor mentions exist, state: \"Limited competitor visibility in analyzed queries - focus is primarily on [Brand] direct searches and voucher/review platforms.\"\n\n---\n\n## SECTION 6: IMPLICATIONS AND OPPORTUNITIES FOR AFFILIATES & CONTENT (HOW AN AFFILIATE NETWORK COULD HELP [BRAND])\n\n**CRITICAL RULES:**\n- Write as flowing PROSE paragraphs, NOT numbered lists\n- Each recommendation MUST be 60-90 words\n- Each recommendation MUST name specific domains from the search data\n- Each recommendation MUST include 2-3 tactical examples\n- Each recommendation MUST reference performance data or current state\n- Explain WHY, not just WHAT\n- Only recommend partnerships with domains that ACTUALLY appear in your data\n\n**Write 5-7 recommendations following these templates:**\n\n### Recommendation 1: Prioritise Editorial Commerce Partners\n\nLook at editorial/review domains in your data (publisherType: \"editorial\" or \"review_ugc\")\n\n**REQUIRED LENGTH: 60-90 words**\n\n**REQUIRED ELEMENTS:**\n- Name 2-3 specific domains from data\n- Provide 2-3 content module examples with specific segments/use-cases\n- Include specific URL structure guidance\n- Mention position data or AI citation relevance\n- Current state or gap\n\n**Template:**\n\"Prioritise [publisher type] partners (e.g., [Domain 1], [Domain 2], [Domain 3 - all from data]) with structured placements: '[Content module 1]', '[Content module 2]', '[Content module 3]' that deep-link to [specific URL structure]. [Performance context - positions, AI citation]. [Current state observation].\"\n\n**Example (85 words):**\n\"Prioritise editorial partners (e.g., House Beautiful, T3, Good Housekeeping) with structured placements: 'Best washing machines for large families', 'Top refrigerators under £500', 'Energy-efficient dishwashers for compact kitchens' that deep-link to category hubs on markselectrical.co.uk/[category]/[product-type]. These editorial guides rank consistently in positions 3-7 for high-intent discovery queries and are heavily cited by AI assistants for appliance recommendations. Currently, editorial mentions focus on trends rather than specific Marks Electrical product availability.\"\n\n### Recommendation 2: Own the Coupon Narrative\n\nLook at voucher/discount domains in your data\n\n**REQUIRED LENGTH: 60-90 words**\n\n**REQUIRED ELEMENTS:**\n- Name 2-3 voucher platforms from data\n- List 3+ specific tactical requirements (code hygiene, T&Cs, etc.)\n- Include 3+ seasonal moments\n- Describe current problem state with specificity\n\n**Template:**\n\"Own the [content type] narrative by working with dominant platforms ([Name 1], [Name 2], [Name 3 from data]) to ensure: [specific requirement 1], [specific requirement 2], and [specific requirement 3] aligned to [seasonal moments]. [Performance context]. [Specific current problem].\"\n\n**Example (78 words):**\n\"Own the coupon narrative by working with dominant platforms (TechRadar, VoucherCodes, HotUKDeals) to ensure: consistent code hygiene, clear T&Cs, and seasonal promo calendars aligned to key retail moments (Back to School, Black Friday, January sales, Easter). Currently, these sites rank in top 3 for all discount-intent queries but often feature outdated codes or AO.com/Currys offers more prominently than Marks Electrical exclusives, suggesting opportunity for exclusive code partnerships.\"\n\n### Recommendation 3: Create Comparison-Friendly Content Assets\n\nLook at comparison queries (\"vs\" queries) and competitor mentions\n\n**REQUIRED LENGTH: 60-90 words**\n\n**REQUIRED ELEMENTS:**\n- 2-3 specific comparison content examples\n- Reference actual competitors from data\n- Explain stickiness/evergreen value\n- Note competitor advantage or gap\n\n**Template:**\n\"Create comparison-friendly content assets ([specific example 1], [specific example 2], [specific example 3]) that affiliates can cite and adapt—[explain why comparison content is valuable]. [Competitor presence observation]. [Gap or opportunity].\"\n\n**Example (72 words):**\n\"Create comparison-friendly content assets ('Marks Electrical vs AO.com: Delivery timeframes and installation services', 'Price-match policy comparison: Marks vs Currys vs Appliances Direct', 'Warranty coverage breakdown by retailer') that affiliates and forums can reference—comparison pages are sticky, evergreen, and repeatedly referenced across HotUKDeals and Reddit discussions. Currently, AO.com features more prominently in these conversations due to stronger brand awareness in comparison contexts, creating opportunity to establish Marks Electrical's differentiation.\"\n\n### Recommendation 4: Forum & UGC Engagement\n\nLook at forum/community domains in your data (reddit, mumsnet, forums)\n\n**REQUIRED LENGTH: 60-90 words**\n\n**REQUIRED ELEMENTS:**\n- Name specific forums from data\n- Describe actual discussion patterns from titles/snippets\n- 2-3 specific engagement tactics\n- Current brand mention context\n\n**Template:**\n\"[Action verb] with [community platforms from data] where [describe actual discussion patterns from data]—[explain UGC importance]. [Specific engagement tactics: monitor threads, respond to queries, share stories]. [Current state from snippets].\"\n\n**Example (71 words):**\n\"Engage proactively with consumer forums like Reddit (r/AskUK) and Money Saving Expert where appliance purchase decisions are actively discussed ('What websites to avoid when buying appliances?')—these UGC platforms shape peer recommendations and rank in top 10 for comparison queries. Monitor threads about UK appliance retailers, respond to service queries within 24 hours, and share delivery success stories. Currently, discussions mention Marks Electrical alongside AO.com and Currys but lack brand representative presence.\"\n\n### Recommendation 5: Reputation Support Loop\n\nLook at review platforms in your data\n\n**REQUIRED LENGTH: 60-90 words**\n\n**REQUIRED ELEMENTS:**\n- Name review platforms from data\n- 2-3 specific concerns to address\n- 2-3 solutions to point toward\n- Why review platforms matter (position data)\n- Current rating if available from data\n\n**Template:**\n\"[Action] should proactively address [specific concern 1], [concern 2], and [concern 3] and point to [solution 1], [solution 2], because [explain review platform importance with position data]. [Current rating or state].\"\n\n**Example (68 words):**\n\"Partner content should proactively address delivery timeframes, installation quality, and warranty claim processes and point to verified Trustpilot reviews (currently 4.8★), same-day delivery guarantees, and extended warranty options, because review platforms like Trustpilot rank in positions 4-8 for brand evaluation queries and directly influence purchase decisions. Current reviews highlight delivery excellence but could better showcase installation service quality and responsive customer support for post-purchase issues.\"\n\n### Recommendation 6: Format Bets That Match LLM Citation Patterns\n\n**REQUIRED LENGTH: 60-90 words**\n\n**REQUIRED ELEMENTS:**\n- 3+ specific format examples\n- Explain extractability for AI\n- Reference competitor or editorial examples from data\n\n**Template:**\n\"Format bets that match LLM citation patterns: [format 1 with example], [format 2 with example], and [format 3 with example] (high extractability for AI assistants). [Note competitor approach or editorial examples from data].\"\n\n**Example (74 words):**\n\"Format bets that match LLM citation patterns: 'Top 5 [appliances] for [specific need]' with verdict blocks (e.g., 'Best washing machine for families: Bosch Series 8'), pros/cons bullets for each model tier, and 'Who it's for' sections tailored to household types (high extractability for AI assistants). Partner content should mirror formats used by House Beautiful and T3 in the data, which dominate AI-cited responses for appliance recommendations through structured, scannable content.\"\n\n### Recommendation 7: Close the Gap Between Product Mention and Store Destination\n\n**REQUIRED LENGTH: 60-90 words**\n\n**REQUIRED ELEMENTS:**\n- Describe current state from data\n- Describe desired state\n- 2-3 specific landing page improvements\n- Reference competitor comparison\n\n**Template:**\n\"Close the gap between [current state from data] and [desired state]: when [Brand] [products] are recommended [where from data], ensure [specific improvement 1], [improvement 2], and [improvement 3] so the click path is as 'obvious' as [competitor examples from data]. [Additional context].\"\n\n**Example (76 words):**\n\"Close the gap between product mentions in editorial content and actual store conversions: when Marks Electrical appliances are recommended in House Beautiful or T3 trend articles, ensure category landing pages have model-year hubs, brand filter options, and 'Shop by room' navigation so the click path is as 'obvious' as AO.com or Currys equivalents. Currently, editorial mentions often lack direct product links, forcing consumers to search manually, which increases drop-off rates compared to competitors with established editorial partnerships.\"\n\n**CRITICAL:** \n- Each recommendation must be 60-90 words\n- Each must include multiple specific examples (2-3 minimum)\n- Each must reference actual domains from your data\n- Each must include performance context or current state observation\n- Only recommend actions for domains that appear in your data\n\n---\n\n## FORBIDDEN PATTERNS:\n\n- Showing calculation methodology (\"40 points for...\", \"scoring: 8+ domains = 30 points\")\n- Using emojis or special characters in section headers or body text\n- Numbered list format for recommendations (1. 2. 3.)\n- Publisher Type = \"Other\" without attempting classification\n- Inventing domains not in the data (Consumer Reports, YouTube, etc. unless they appear)\n- All opportunity scores identical\n- Vague recommendations without specific domains\n- Recommending partnerships with domains not in your data\n- Missing any of the 6 required sections\n- Generic freshness (\"fresh\" for everything)\n- Repeating \"Fresh (recent crawl)\" for multiple entries - EACH ENTRY MUST BE UNIQUE\n- Using \"techradar.com\" instead of \"TechRadar\" in tables\n- Generic recommendations that could apply to any brand\n- Recommendations shorter than 60 words\n- Omitting the \"(using live search results as an LLM-citation proxy)\" phrase from opening\n- Writing full prose paragraphs in the \"Evergreen vs Fresh\" section instead of punchy statements\n- Writing recommendations without multiple tactical examples\n\n---\n\n## FINAL DATA VALIDATION CHECK\n\nBefore outputting your analysis, perform this check:\n\n1. Verify opening paragraph includes \"(using live search results as an LLM-citation proxy)\"\n2. Check that NO two freshness signals are identical in the table\n3. Verify \"Evergreen vs Fresh\" section uses short, punchy statements (not full paragraphs)\n4. Count words in each recommendation - ALL must be 60-90 words\n5. Verify each recommendation includes 2-3 specific tactical examples\n6. List all domains mentioned and verify each exists in the `opportunities` array\n7. Verify all 6 sections are present with correct headings\n\n**Remember:** It's better to have a short, accurate analysis using real domains than a long, impressive analysis using invented domains.\n\n---\n\n## VALIDATION CHECKLIST:\n\nBefore outputting, verify:\n\n- Opening includes \"(using live search results as an LLM-citation proxy)\" phrase\n- All 6 sections present with correct HP-style headings\n- Top Cited table uses displayName field (e.g., \"TechRadar\" not \"techradar.com\")\n- Top Cited table shows page-level context from actual titles in data\n- Every domain in tables exists in the opportunities array\n- Freshness signals are ALL UNIQUE - no repeating text\n- Score presented WITHOUT showing calculation methodology\n- \"Evergreen vs Fresh\" section uses punchy statements with parenthetical reasoning (NOT full prose)\n- \"Role of Affiliates vs Brand.com\" section analyzes actual patterns\n- \"Obvious competitors\" section only mentions competitors found in data\n- Recommendations are prose paragraphs (not numbered bullets)\n- ALL recommendations are 60-90 words\n- ALL recommendations include 2-3 specific tactical examples\n- Every recommendation names specific domains from the data\n- No invented/hallucinated domains\n- Publisher types properly classified\n- No emojis anywhere in the output\n\n---\n\n**NOW: Generate your Strategic Visibility & Opportunity Analysis following this structure, using ONLY the domains present in the search results data provided above. Pay special attention to: (1) including the LLM-citation proxy phrase in opening, (2) making every freshness signal unique, (3) keeping Evergreen vs Fresh section punchy, and (4) making all recommendations 60-90 words with multiple examples.**",
+        "options": {
+          "systemMessage": "You are a strategic affiliate marketing consultant at Tradedoubler with expertise in SEO, AEO, and publisher recruitment. You create executive-ready QBR content."
+        }
+      },
+      "name": "AI: Generate Visibility Report",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        832,
+        800
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Tag Visibility Output\nreturn [{\n  json: {\n    visibilityAnalysis: $json.output ?? \"\",\n    opportunityData: $node[\"Classify & Score Opportunities\"].json.opportunities ?? []\n  }\n}];\n"
+      },
+      "name": "Tag Visibility Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1152,
+        800
+      ]
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1392,
+        256
+      ],
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Aggregate SERP Data - Collect all results from all queries\nconst allResults = $input.all().map(item => item.json);\n\nreturn [{\n  json: {\n    allResults: allResults\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        112,
+        800
+      ],
+      "name": "aggregate serp data"
+    },
+    {
+      "parameters": {
+        "resource": "worksheet",
+        "operation": "readRows",
+        "workbook": {
+          "__rl": true,
+          "value": "016IEPKXTALTFVRAAS5ZGKF7KTDBSSUUVU",
+          "mode": "list"
+        },
+        "worksheet": {
+          "__rl": true,
+          "value": "{42DF72EF-6A33-4124-8C5D-7311B808F18D}",
+          "mode": "list",
+          "cachedResultName": "Publisher 2025",
+          "cachedResultUrl": "https://tradedoublergroup-my.sharepoint.com/personal/harry_collins_tradedoubler_com/_layouts/15/Doc.aspx?sourcedoc=%7B58CB5C60-1280-4CEE-A2FD-5318652A52B4%7D&file=statistic-program%20(1).xlsx&action=default&mobileredirect=true&DefaultItemOpen=1&activeCell=Publisher%202025!A1"
+        },
+        "options": {}
+      },
+      "name": "Excel: Get Publisher Rows 2025",
+      "type": "n8n-nodes-base.microsoftExcel",
+      "position": [
+        -352,
+        464
+      ],
+      "typeVersion": 2,
+      "credentials": {
+        "microsoftExcelOAuth2Api": {
+          "id": "E3yG3eQSTfJEDfeA",
+          "name": "Microsoft Excel account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Validate Market Data - Check for wrong-market domains\nconst allResults = $json.allResults || [];\nconst expectedMarket = $node[\"Extract Brand Context\"].json.market.toLowerCase();\n\n// Define wrong-market patterns\nconst wrongMarketPatterns = {\n  uk: [\n    /consumerreports\\.org/,\n    /\\.com$/,  // Most .com are US (but not all)\n    /hagedorn/,\n    /williams.*sonoma/,\n    /bestbuy/,\n    /target\\.com/,\n    /walmart/\n  ],\n  us: [\n    /\\.co\\.uk$/,\n    /which\\.co\\.uk/,\n    /hotukdeals/,\n    /currys/,\n    /ao\\.com/\n  ]\n};\n\nconst wrongPatterns = wrongMarketPatterns[expectedMarket] || [];\n\n// Flag suspicious domains\nconst validated = allResults.map(r => {\n  const domain = r.domain.toLowerCase();\n  const isWrongMarket = wrongPatterns.some(pattern => pattern.test(domain));\n  \n  return {\n    ...r,\n    marketWarning: isWrongMarket ? `⚠️ ${domain} may be wrong market` : null\n  };\n});\n\nconst wrongMarketCount = validated.filter(r => r.marketWarning).length;\n\nif (wrongMarketCount > 0) {\n  console.log(`⚠️ WARNING: ${wrongMarketCount} domains flagged as wrong market`);\n}\n\nreturn [{ \n  json: { \n    allResults: validated,\n    marketValidation: {\n      totalResults: validated.length,\n      wrongMarketCount,\n      expectedMarket\n    }\n  } \n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        320,
+        800
+      ],
+      "name": "Validate Market Data"
+    },
+    {
+      "parameters": {
+        "content": "Look in to reddit ad quaora analysis for LLM ranking\n\ncompare markets trends - with program performance\n\nsend to champions emil once it is completed"
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1232,
+        0
+      ],
+      "name": "Sticky Note"
+    }
+  ],
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "split data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Excel: Get Current Period": {
+      "main": [
+        [
+          {
+            "node": "Excel: Get Previous Period",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Excel: Get Previous Period": {
+      "main": [
+        [
+          {
+            "node": "Process YoY Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process YoY Data": {
+      "main": [
+        [
+          {
+            "node": "AI Agent: Analyze Performance",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent: Analyze Performance": {
+      "main": [
+        [
+          {
+            "node": "Tag Program Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Excel: Get Publisher Rows1": {
+      "main": [
+        [
+          {
+            "node": "Excel: Get Publisher Rows 2025",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Publisher QBR Pack1": {
+      "main": [
+        [
+          {
+            "node": "AI Agent: Publisher QBR1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent: Publisher QBR1": {
+      "main": [
+        [
+          {
+            "node": "Tag Publisher Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Final Response1": {
+      "main": [
+        [
+          {
+            "node": "Respond to Chat",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI GPT-1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent: Analyze Performance",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "AI Agent: Publisher QBR1",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "AI: Generate Visibility Report",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tag Program Output": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tag Publisher Output": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "split data": {
+      "main": [
+        [
+          {
+            "node": "Excel: Get Current Period",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Excel: Get Publisher Rows1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Extract Brand Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Brand Context": {
+      "main": [
+        [
+          {
+            "node": "Generate Search Queries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Search Queries": {
+      "main": [
+        [
+          {
+            "node": "Loop Through Queries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Through Queries": {
+      "main": [
+        [
+          {
+            "node": "aggregate serp data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Serper API Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Serper API Search": {
+      "main": [
+        [
+          {
+            "node": "Parse SERP Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse SERP Results": {
+      "main": [
+        [
+          {
+            "node": "Loop Through Queries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Classify & Score Opportunities": {
+      "main": [
+        [
+          {
+            "node": "AI: Generate Visibility Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI: Generate Visibility Report": {
+      "main": [
+        [
+          {
+            "node": "Tag Visibility Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tag Visibility Output": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Build Final Response1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "aggregate serp data": {
+      "main": [
+        [
+          {
+            "node": "Validate Market Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Excel: Get Publisher Rows 2025": {
+      "main": [
+        [
+          {
+            "node": "Process Publisher QBR Pack1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Market Data": {
+      "main": [
+        [
+          {
+            "node": "Classify & Score Opportunities",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {},
+  "tags": [],
+  "active": false
+}

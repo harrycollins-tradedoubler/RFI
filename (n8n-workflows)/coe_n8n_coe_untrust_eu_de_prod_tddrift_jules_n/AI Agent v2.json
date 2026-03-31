@@ -1,0 +1,628 @@
+{
+  "id": "3grmyfPOINdg5QPb",
+  "name": "AI Agent v2",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "onboarding-chat",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1088,
+        128
+      ],
+      "webhookId": "onboarding-chat"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ----------------------------\n// Get incoming data\n// ----------------------------\nconst userMessage = $input.item.json.body.message;\nconst conversationHistory = $input.item.json.body.conversationHistory || [];\nconst onboardingData = $input.item.json.body.onboardingData || {};\nconst checklist = $input.item.json.body.checklist || {};\n\n// ----------------------------\n// Program ID Handling\n// ----------------------------\nlet programId = $input.item.json.body.programId;\n\n// Fallback: if stored in memory\nif (!programId && onboardingData.programId) {\n  programId = onboardingData.programId;\n}\n\n// Store into onboardingData so memory remembers it\nonboardingData.programId = programId;\n\n// Build dynamic implementation URL\nconst implementationUrl = `https://hst.tradedoubler.com/file/${programId}/implementation.html`;\n\n\n// ----------------------------\n// System prompt\n// ----------------------------\nconst systemPrompt = `\nYou are an expert onboarding assistant for Tradedoubler, an affiliate marketing network. Guide clients through technical onboarding in a friendly, professional manner. Only greet the user once at the start of the conversation; once the conversation is flowing never repeat greetings such as Hi, Hello or Hey.\n\nCRITICAL: You MUST follow these steps IN ORDER. After collecting information for one step, AUTOMATICALLY move to the next step. Do NOT ask what the user wants to do - guide them through the process step by step.\n\nOnboarding steps:\n1. BRANDED TRACKING: Two subdomains (visit.clientdomain.com and statics.clientdomain.com).\nFIRST: Get client name and company name if you don't have them yet.\nTHEN: IMMEDIATELY (without asking what they want) give this branded tracking paragraph:\n\"To combat the increasing challenges of Browser Privacy settings and Adblockers on tracking technology Tradedoubler has launched Branded Tracking. This solution will mask Tradedoubler tracking scripts under your own domain, preventing them from being disrupted. Branded Tracking also comes with the added benefit of masking publisher click links under your domain as well, creating a more positive user journey for consumers. \nTo set this up, we will need two new subdomains — one for ad serving and one for tracking. You don't need to configure the subdomains on your end; we only require their names so we can register them in our system. Once the domain names are confirmed, I'll provide you with the CNAME DNS records needed to establish the connection.\"\nAFTER: Ask for their website domain.\nOnce the client confirms they are happy with the subdomains, say we have sent the domains to the technical team to integrate.\n\n2. PRODUCT FEED:\n- Ask for the feed URL\n- Validate accessibility\n- Once the feed link is provided, respond EXACTLY like:\n\"Perfect! I've received your product feed URL. I'm now connecting it to our AI-powered mapping system. I'll send you an email once it's complete. In the meantime, let's move on to uploading your program assets.\"\n\n3. PROGRAM ASSETS:\n- Logo (350x130)\n- Ads (160x600, 300x250, 300x600, 728x90, 928x70)\n- T&Cs\n\n4. OFFICE IP ADDRESSES:\n- Ask for IPs to blacklist internal staff\n\n5. TRACKING SCRIPTS: Once domains are confirmed, provide implementation guidance:\n\nSay:\n\"Perfect! Now that your domains are confirmed, here are your tracking scripts:\n\n📄 Implementation File: \\\\${implementationUrl}\n\nThis file contains:\n• Landing page script (for all pages)\n• Confirmation page script (for thank-you/order confirmation page)\n• Test link for verification\n\nNEXT STEPS:\n1. Integrate the scripts into your website following the instructions in the file\n2. Once integrated, use the test link provided to complete a test transaction\n3. This will verify that tracking is working correctly\n\nWould you like me to walk you through the integration process, or do you have a developer who will handle this?\"\n\nIMPORTANT: GTM Preview Mode is ONLY for checking that tags fire correctly.\nYou CANNOT validate Tradedoubler tracking in Preview Mode because the test click link will not load inside preview and the pixel will not reach the Tradedoubler servers.\n\nReal tracking tests MUST be done on the live site using the official Tradedoubler test link — outside of GTM Preview Mode.\n\nIMPORTANT: Once the user confirms they have completed a test sale, say:\n\"Great! Thanks for testing. I have sent a message through to our technical team to verify if the tracking is live.\"\n\nWhen providing tracking code or GTM snippets:\n- Do NOT output <script> tags.\n- Only output plain JavaScript inside a normal code block.\n- Do not specify a code-block language label.\n- Mandatory parameters are: Order Value, Order Number, and Currency.\n- DO NOT mention products unless the client wants to integrate PLT.\n\nCRITICAL — TRACKING SCRIPT RULES:\nIMPORTANT: Clarification about Google Tag Manager (GTM) usage:\n\nTradedoubler DOES allow the use of the GTM dataLayer, but ONLY for the purpose of \npassing dynamic transaction parameters (order number, order value, currency, \nvoucher, products, etc.) into the GTM confirmation tag.\n\nGTM's dataLayer is NOT used for firing Tradedoubler conversions.\n\nThe ONLY valid tracking mechanism is:\n\nvar TDConversion = {\n  transactionId: '[ORDER_NUMBER]',\n  ordervalue: '[ORDER_VALUE]',\n  currency: '[CURRENCY]',\n  event: [EVENT_ID],\n  voucher: '[VOUCHER]',\n  cdt: { extId: '[EXITID]', extType: 1 },\n  validOn: '[VALID_ON]',\n  products: '[PRODUCT_DATA]'\n};\ntdconv('track', 'sale', TDConversion);\n\nWhen GTM is used, the confirmation tag inside GTM must:\n1. READ dynamic values from the dataLayer (e.g. orderId, orderValue, currency)\n2. INSERT those values into the TDConversion object\n3. EXECUTE tdconv('track','sale', TDConversion)\n\nYou MUST guide the user by referring to the Tradedoubler GTM manual, which explains:\n- How to structure the dataLayer variables\n- How to map dataLayer values to TDConversion inside a GTM Custom HTML tag\n- How to test tracking properly outside GTM Preview Mode\n\nNEVER output or suggest GTM ecommerce pushes such as:\nwindow.dataLayer.push({ event: 'purchase', ecommerce: ... });\n\nThese belong to Google Analytics, not Tradedoubler.\n\n\nBe warm, ask one question at a time, celebrate progress, and acknowledge information clearly.\n\nCurrent progress:\n- Client: ${onboardingData.clientName || 'Not provided'}\n- Company: ${onboardingData.companyName || 'Not provided'}\n- Completed steps: ${Object.values(checklist).filter(Boolean).length}/6\n`;\n\n\n// ----------------------------\n// Messages\n// ----------------------------\nconst messages = [\n  { role: \"system\", content: systemPrompt },\n  ...conversationHistory,\n  { role: \"user\", content: userMessage }\n];\n\n\n// ----------------------------\n// Return data\n// ----------------------------\nreturn {\n  messages,\n  systemPrompt,\n  userMessage,\n  onboardingData,\n  checklist,\n  sessionId: $input.item.json.body.sessionId\n};\n"
+      },
+      "name": "Prepare Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -848,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ----------------------------\n// Load AI output + input data\n// ----------------------------\nconst input = $input.item.json;\n\n// AI reply from the agent\nconst aiResponse = input.output || input.text || \"\";\n\n// ----------------------------\n// Get user message from Prepare Data (CORRECT SOURCE)\n// ----------------------------\nconst userMessageRaw = $('Prepare Data').item.json.userMessage || \"\";\nconst userMessage = userMessageRaw.trim().toLowerCase();\n\nconsole.log(\"DEBUG - User message:\", userMessage);\n\n// Keep messages array for other parts of code\nconst messages = input.messages || [];\n\n// ----------------------------\n// Load previous onboarding state\n// ----------------------------\nlet data = { ...(input.onboardingData || {}) };\n\n// Extract name - improved\nif (!data.clientName) {\n  const match = userMessage.match(/\\b(?:i am|i'm|my name is|this is|name's|called)\\s+([a-z]+)/i);\n  if (match) {\n    const raw = match[1];  // Changed from match[2] to match[1]\n    data.clientName = raw.charAt(0).toUpperCase() + raw.slice(1);\n  }\n}\n\n// Extract company - improved\nif (!data.companyName) {\n  const match = userMessage.match(/\\b(?:work at|from|with|representing|at|company)\\s+([a-z0-9&\\s]+?)(?:\\.|,|$|\\band\\b|\\bto\\b)/i);\n  if (match) data.companyName = match[1].trim();  // Changed from match[2] to match[1]\n}\n\n// ----------------------------\n// Extract root domain\n// ----------------------------\nconst domainMatch = userMessage.match(/([a-z0-9][a-z0-9-]{0,61}[a-z0-9]\\.[a-z]{2,}(?:\\.[a-z]{2,})?)/);\nif (domainMatch) {\n  const clean = domainMatch[0].replace(/^(https?:\\/\\/)?(www\\.)?/, \"\");\n  data.rootDomain = clean;\n  data.visitSubdomain = `visit.${clean}`;\n  data.staticsSubdomain = `statics.${clean}`;\n}\n\n// ----------------------------\n// Extract product feed URL\n// ----------------------------\nconst linkMatch = userMessage.match(/https?:\\/\\/[^\\s]+/i);\nif (linkMatch && (userMessage.includes(\"feed\") || userMessage.includes(\"product\"))) {\n  data.productFeedUrl = linkMatch[0];\n}\n\n// Detect feed format\nif (data.productFeedUrl) {\n  if (data.productFeedUrl.toLowerCase().endsWith(\".xml\")) {\n    data.feedFormat = \"XML\";\n  } else if (data.productFeedUrl.toLowerCase().endsWith(\".csv\")) {\n    data.feedFormat = \"CSV\";\n  }\n}\n\n// ----------------------------\n// Extract IPs\n// ----------------------------\nif (userMessage.match(/\\b\\d{1,3}(\\.\\d{1,3}){3}\\b/)) {\n  const ips = userMessage.match(/\\b\\d{1,3}(\\.\\d{1,3}){3}\\b/g);\n  data.officeIPs = [...(data.officeIPs || []), ...ips];\n}\n\n// ----------------------------\n// Checklist\n// ----------------------------\nconst checklist = {\n  intro: !!(data.clientName && data.companyName),\n  brandedTracking: !!data.rootDomain,\n  productFeed: !!data.productFeedUrl,\n  assets: false,\n  ipAddresses: !!(data.officeIPs && data.officeIPs.length > 0),\n  trackingScripts: false\n};\n\nconst isComplete = Object.values(checklist).every((v) => v);\n\n// ----------------------------\n// FOLLOW-UP DETECTION - WITH DEBUG\n// ----------------------------\nconst postponementPhrases = [\n  \"not ready\",\n  \"later\",\n  \"another time\",\n  \"set this up later\",\n  \"come back\",\n  \"not yet\",\n  \"few days\",\n  \"couple of days\",\n  \"do not have this right now\",\n  \"don't have this right now\",\n  \"send to you in a few days\",\n  \"can i send it later\",\n  \"can i send later\",\n  \"i'll send it later\",\n  \"not available right now\",\n  \"need more time\",\n  \"can we do this later\",\n  \"can i do this later\"  // ADDED\n];\n\nlet followUp = null;\n\n// DEBUG: Log what we're checking\nconsole.log(\"=== FOLLOW-UP DEBUG ===\");\nconsole.log(\"userMessageRaw:\", userMessageRaw);\nconsole.log(\"userMessage (lowercase):\", userMessage);\nconsole.log(\"messages array:\", messages);\n\n// Check if any phrase matches\nconst matchedPhrase = postponementPhrases.find(phrase => userMessage.includes(phrase));\n\nif (matchedPhrase) {\n  console.log(\"MATCHED PHRASE:\", matchedPhrase);\n  \n  const followUpDate = new Date();\n  followUpDate.setDate(followUpDate.getDate() + 3);\n\n  followUp = {\n    reason: \"user_postponed_step\",\n    follow_up_at: followUpDate.toISOString(),\n    original_message: userMessageRaw\n  };\n  \n  console.log(\"followUp created:\", followUp);\n} else {\n  console.log(\"NO PHRASE MATCHED\");\n}\n\nconsole.log(\"=== END DEBUG ===\");\n\n// ----------------------------\n// RETURN DATA\n// ----------------------------\nreturn {\n  response: aiResponse,\n  onboardingData: data,\n  checklist,\n  isComplete,\n  followUp\n};\n"
+      },
+      "name": "Process Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -240,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{\n  {\n    response: $json.response,\n    onboardingData: $json.onboardingData,\n    checklist: $json.checklist,\n    isComplete: $json.isComplete\n  }\n}}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, OPTIONS"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type, Authorization"
+              }
+            ]
+          }
+        }
+      },
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        768,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ \n$json.systemPrompt \n+ \"\\n\\nMost Recent User Message:\\n\"\n+ $json.userMessage \n+ \"\\n\\nConversation so far:\\n\" \n+ $json.messages.filter(m => m.role !== 'system').map(m => m.role + ': ' + m.content).join('\\n') \n}}",
+        "options": {
+          "returnIntermediateSteps": true
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        -608,
+        128
+      ],
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -736,
+        336
+      ],
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "L4g2aVcKF4eab59w",
+          "name": "OpenAi account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "Searches the Tradedoubler technical knowledge base.\n\nUSE THIS TOOL for any question involving:\n- “why”, “how”, “what is”, “what if”, “can you explain”\n- tracking implementation (landing/confirmation scripts)\n- branded tracking (visit. / statics. domains, first-party cookies)\n- DNS setup / CNAME configuration\n- GTM integration, dataLayer, tag sequencing\n- testing and troubleshooting\n- product feeds (XML/CSV), feed rules, product attributes\n- consent management & GDPR\n- Safari ITP, TDUID, cookies, trsdk, tdconv\n\nHOW TO USE RESULTS:\n1. Prefer chunks where metadata.embedding_role = \"content\".\n2. Use metadata.embedding_role = \"title\" and \"keywords\" to improve relevance\n   when the user's query is ambiguous or broad.\n3. Use metadata.semantic_category to focus retrieval on the correct topic:\n   - dns-setup\n   - branded-tracking\n   - conversion-tracking\n   - gtm-implementation\n   - product-feed\n   - compliance\n   - testing\n4. Use metadata.search_text to match intent, terminology, and synonyms.\n5. Base ALL technical answers STRICTLY on the retrieved chunks.\n6. If the retrieved documents do not contain the required information,\n   clearly state that the documentation does not cover it.\n\nYou MUST call this tool before answering any technical question.\nYou MUST ground your answers in the retrieved documentation.",
+        "tableName": {
+          "__rl": true,
+          "value": "documents_v3",
+          "mode": "list",
+          "cachedResultName": "documents_v3"
+        },
+        "topK": 6,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreSupabase",
+      "typeVersion": 1.3,
+      "position": [
+        -384,
+        336
+      ],
+      "name": "Supabase Vector Store",
+      "credentials": {
+        "supabaseApi": {
+          "id": "b5IZZso0TIYWpJI3",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -304,
+        528
+      ],
+      "name": "Embeddings OpenAI",
+      "credentials": {
+        "openAiApi": {
+          "id": "L4g2aVcKF4eab59w",
+          "name": "OpenAi account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "=={{ $('Webhook').item.json.body.sessionId }}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
+      "typeVersion": 1.3,
+      "position": [
+        -592,
+        336
+      ],
+      "name": "Postgres Chat Memory",
+      "credentials": {
+        "postgres": {
+          "id": "kpc0xbEzS5TnP8WZ",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "conversation_logs",
+          "mode": "list",
+          "cachedResultName": "conversation_logs"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "session_id": "=={{ $('Prepare Data').item.json.sessionId }}",
+            "user_message": "=={{ $('Prepare Data').item.json.userMessage }}",
+            "ai_response": "=={{ $json.response }}",
+            "client_name": "=={{ $json.onboardingData?.clientName || null }}",
+            "company_name": "=={{ $json.onboardingData?.clientName || null }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "session_id",
+              "displayName": "session_id",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "user_message",
+              "displayName": "user_message",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ai_response",
+              "displayName": "ai_response",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "client_name",
+              "displayName": "client_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "company_name",
+              "displayName": "company_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -32,
+        128
+      ],
+      "name": "log conversation",
+      "credentials": {
+        "postgres": {
+          "id": "kpc0xbEzS5TnP8WZ",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "d2e94f22-4672-495f-ac61-28f3e2db6433",
+              "leftValue": "=={{ $json.followUp }}",
+              "rightValue": "null",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        384,
+        128
+      ],
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "jsCode": "return {\n  response: $('Process Data').item.json.response,\n  onboardingData: $('Process Data').item.json.onboardingData,\n  checklist: $('Process Data').item.json.checklist,\n  isComplete: $('Process Data').item.json.isComplete\n};\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        832,
+        -16
+      ],
+      "name": "convert data"
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "follow_up_events",
+          "mode": "list",
+          "cachedResultName": "follow_up_events"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "user_message": "{{ $json.followUp.original_message }}",
+            "reason": "{{ $json.followUp.reason }}",
+            "follow_up_at": "={{ $json.followUp.follow_up_at }}",
+            "session_id": "=={{ $('Prepare Data').item.json.sessionId }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "session_id",
+              "displayName": "session_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "user_message",
+              "displayName": "user_message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "reason",
+              "displayName": "reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "follow_up_at",
+              "displayName": "follow_up_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "processed",
+              "displayName": "processed",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        624,
+        -16
+      ],
+      "name": "insert rows in DB",
+      "credentials": {
+        "postgres": {
+          "id": "kpc0xbEzS5TnP8WZ",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "1.Build follow up logic - data is connected to posgres - now connect it to the front end correctly\n2.Build teams connections"
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        432,
+        -384
+      ],
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "jsCode": "return {\n  response: $('Process Data').item.json.response,\n  onboardingData: $('Process Data').item.json.onboardingData,\n  checklist: $('Process Data').item.json.checklist,\n  isComplete: $('Process Data').item.json.isComplete,\n  followUp: $('Process Data').item.json.followUp  // ← ADD THIS LINE\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        176,
+        128
+      ],
+      "name": "JS"
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Prepare Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Data": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Data": {
+      "main": [
+        [
+          {
+            "node": "log conversation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Process Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase Vector Store": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings OpenAI": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Supabase Vector Store",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres Chat Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "log conversation": {
+      "main": [
+        [
+          {
+            "node": "JS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "insert rows in DB",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "convert data": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "insert rows in DB": {
+      "main": [
+        [
+          {
+            "node": "convert data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "JS": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {},
+  "tags": [],
+  "active": false
+}

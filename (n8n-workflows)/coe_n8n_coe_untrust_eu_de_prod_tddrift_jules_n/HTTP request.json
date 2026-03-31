@@ -1,0 +1,57 @@
+{
+  "id": "4b7dXKBaSTM1o5H6",
+  "name": "HTTP request",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "url": "https://connect.tradedoubler.com/advertiser/report/statistics/events/sources&toDate=20251001&fromDate=20250601&programId=327928&lastModified=true",
+        "options": {},
+        "headerParametersUi": {
+          "parameter": [
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0ZHVzZXIiOiIwMjI0MTQwMTMwNzQwZmU4YThmOTRhNDRlZDA1M2UzMmMyNjlhYjk0N2I4ZjJjZWUyMGIxMmViZTE3YzY3NWU1ZDM5N2ZkYzhkZDg0OGViMTA5ZDQ2MWRhN2ZlMzllNjYxNWMzODE0YjQwYzFlNmRlNmUwYmVlY2I5ZDkyNDQ5MDFiZjU4ZjFmNWYxZTZmNWY1NDNhZjg4YTk3YmUzMGNmZGE0N2M2N2EwNGZhZDM2NmE0NzM1Y2JlNmQ0MzVjOTcyYjVjMmZlNTZkMGJlNzgwOTgyMGQwZGE5YzcxZDI4YjRhZmJiZDdiMjlkZjliMTJkN2EwZTA2OGU3YTM5YWQxN2I1ZjQwNzE3OTdjNzUzNGJkMWY5Yzg2NTM0ZTk5YjNlZDA3NzQxMzEyMjQ1ZjJiMTU1N2ZiZTg3NjU2ZDI3OTc5N2VhODExZGJiMGRmNDczOTc5ZWRlZGYxNDBhNmVkYmMwY2YxNGE3MWZlNTc1Y2U5N2M1ZmVhZDEwZWNkN2E3MjViZGY0ODk0ZTkyYjE5NTJjNDRiMjc2NDhjMzJhOGJiOTFiYTBmZDlmNjc4MDM0MmU5ZTEyOThjYzI0MDUyNTYzZWZjNGU0OGMzNGE5NDY3MmE1ZmUzNjNiMjdjYzhkYjlhMTdmNjY3ZmYyNDBhNmVkMmYwMjkyOThjZmQ2OGMwNTMyZjViNDdhZDBjNjMzYTkzNDA3NDExZTMyNzQ2YTQ4MjdhMTEzNTY3ZTZkNjQ0NTM4M2ZjMzFjMzUyNmIzZTAyOTQ2NzYyNmQzMDA4OTA1NGZjNzRlMGNhMzIzZjJlNmU4NTdiZDY2YTQ2MjNmMmU2YTJhNjFkMjRmM2IxMzk0ZjFjZWI5MjVmMzcyMmQzYWM2NTU1Yzg5OTk4NTQyOTE1Y2I1YmI0ZGFjMzZkMzNjNDEyYWVhYWNmN2ExZTc5OTc4YjExNDdmZDRhNTI3YTc1ZTA0OTNjYjdkMTg3NjcyMDk0NWFiOTllMTJiNDM5Mjk5Nzc5YjEzYjU5Njc0NDNkMWVhYjlkN2NlMzFjYjE5NzY2ZDA1OTUwNzhiNCIsInVzZXJfbmFtZSI6Iklhbi5HcmVnb3J5QGtpZGRpY2FyZS5jb20iLCJjcmVhdGVkIjoxNzcwMjIxOTA0LCJzY29wZSI6W10sImltcGVyc29uYXRvclBlcnNvbklkIjoyNDM0OTg3LCJleHAiOjE3NzAyMjkxMDQsImltcGVyc29uYXRlZEJ5IjoiaGFycnkuY29sbGluc0B0cmFkZWRvdWJsZXIuY29tIiwiYXV0aG9yaXRpZXMiOlsiQURWRVJUSVNFUl9BRE1JTiIsIlJPTEVfUFJFVklPVVNfQURNSU5JU1RSQVRPUiJdLCJqdGkiOiIwN2YyY2YzOC1mMjdlLTQxNjMtYmZhYS1kNTVkODVhYjNlOTgiLCJjbGllbnRfaWQiOiJ0ZGNvbm5lY3RfcHVibGlzaGVyIn0.ola-SMuiYRQ8Ezl2GIaIGP5ItGpoHPVPmaECCc9l96k"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        }
+      },
+      "name": "API TEST",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 2,
+      "position": [
+        224,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "API TEST",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {},
+  "tags": [],
+  "active": false
+}

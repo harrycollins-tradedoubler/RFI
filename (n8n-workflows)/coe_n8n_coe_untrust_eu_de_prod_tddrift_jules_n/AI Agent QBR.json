@@ -1,0 +1,446 @@
+{
+  "id": "L1uq4bEQEBTE8SVq",
+  "name": "AI Agent QBR",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {
+          "responseMode": "responseNodes"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        304,
+        1952
+      ],
+      "name": "When chat message received",
+      "webhookId": "d9864d49-694f-499b-8840-62535151ab50"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combinationMode": "mergeByPosition",
+        "options": {}
+      },
+      "name": "Merge AI Outputs",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 2,
+      "position": [
+        2080,
+        1936
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "worksheet",
+        "operation": "readRows",
+        "workbook": {
+          "__rl": true,
+          "value": "016IEPKXTALTFVRAAS5ZGKF7KTDBSSUUVU",
+          "mode": "list",
+          "cachedResultName": "statistic-program (1)",
+          "cachedResultUrl": "https://tradedoublergroup-my.sharepoint.com/personal/harry_collins_tradedoubler_com/_layouts/15/Doc.aspx?sourcedoc=%7B58CB5C60-1280-4CEE-A2FD-5318652A52B4%7D&file=statistic-program%20(1).xlsx&action=default&mobileredirect=true&DefaultItemOpen=1"
+        },
+        "worksheet": {
+          "__rl": true,
+          "value": "{00000000-0001-0000-0000-000000000000}",
+          "mode": "list",
+          "cachedResultName": "Worksheet",
+          "cachedResultUrl": "https://tradedoublergroup-my.sharepoint.com/personal/harry_collins_tradedoubler_com/_layouts/15/Doc.aspx?sourcedoc=%7B58CB5C60-1280-4CEE-A2FD-5318652A52B4%7D&file=statistic-program%20(1).xlsx&action=default&mobileredirect=true&DefaultItemOpen=1&activeCell=Worksheet!A1"
+        },
+        "options": {}
+      },
+      "name": "Excel: Get Current Period",
+      "type": "n8n-nodes-base.microsoftExcel",
+      "position": [
+        928,
+        1856
+      ],
+      "typeVersion": 2,
+      "credentials": {
+        "microsoftExcelOAuth2Api": {
+          "id": "E3yG3eQSTfJEDfeA",
+          "name": "Microsoft Excel account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "worksheet",
+        "operation": "readRows",
+        "workbook": {
+          "__rl": true,
+          "value": "016IEPKXUC63QD63E2WNFLBLCOIFAB2TFH",
+          "mode": "list",
+          "cachedResultName": "statistic-program (2)",
+          "cachedResultUrl": "https://tradedoublergroup-my.sharepoint.com/personal/harry_collins_tradedoubler_com/_layouts/15/Doc.aspx?sourcedoc=%7B3FE0F682-9A6C-4AB3-B0AC-4E41401D4CA7%7D&file=statistic-program%20(2).xlsx&action=default&mobileredirect=true&DefaultItemOpen=1"
+        },
+        "worksheet": {
+          "__rl": true,
+          "value": "{00000000-0001-0000-0000-000000000000}",
+          "mode": "list",
+          "cachedResultName": "Worksheet",
+          "cachedResultUrl": "https://tradedoublergroup-my.sharepoint.com/personal/harry_collins_tradedoubler_com/_layouts/15/Doc.aspx?sourcedoc=%7B3FE0F682-9A6C-4AB3-B0AC-4E41401D4CA7%7D&file=statistic-program%20(2).xlsx&action=default&mobileredirect=true&DefaultItemOpen=1&activeCell=Worksheet!A1"
+        },
+        "options": {}
+      },
+      "name": "Excel: Get Previous Period",
+      "type": "n8n-nodes-base.microsoftExcel",
+      "position": [
+        1120,
+        1856
+      ],
+      "typeVersion": 2,
+      "credentials": {
+        "microsoftExcelOAuth2Api": {
+          "id": "E3yG3eQSTfJEDfeA",
+          "name": "Microsoft Excel account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process YoY Data  (REPLACE with this version that outputs a YoY table pack)\n\nconst currentData = $('Excel: Get Current Period').first().json;\nconst previousData = $('Excel: Get Previous Period').first().json;\n\nfunction safeNum(x) {\n  const n = Number(x);\n  return Number.isFinite(n) ? n : 0;\n}\n\nfunction pct(a, b) {\n  if (!b) return null;\n  return (a / b) * 100;\n}\n\nfunction fmtInt(x) {\n  return Math.round(x).toLocaleString();\n}\nfunction fmtMoney0(x) {\n  return `£${Math.round(x).toLocaleString()}`;\n}\nfunction fmtMoney2(x) {\n  return `£${Number(x).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;\n}\nfunction fmtPct2(x) {\n  if (x === null || x === undefined || Number.isNaN(x)) return \"\";\n  return `${Number(x).toFixed(2)}%`;\n}\nfunction fmtVar1(x) {\n  if (x === null || x === undefined || Number.isNaN(x)) return \"\";\n  const v = Number(x);\n  return `${v >= 0 ? \"+\" : \"\"}${v.toFixed(1)}%`;\n}\n\nfunction calc(d) {\n  const clicks = safeNum(d.clicks);\n  const sales = safeNum(d.sales);\n  const orderValue = safeNum(d.orderValue);\n  const aov = sales ? (orderValue / sales) : 0;\n\n  const pubCommission = safeNum(d.publisherCommission);\n  const tdCommission = safeNum(d.tdCommission);\n  const totalCommission = pubCommission + tdCommission;\n\n  // If your sheet has cost or spend, map it here; otherwise keep 0\n  const cost = safeNum(d.cost ?? d.spend ?? d.mediaCost ?? 0);\n\n  const convRate = clicks ? pct(sales, clicks) : 0;                // %\n  const cpa = sales ? (totalCommission / sales) : 0;               // £ per sale (commission CPA)\n  const roi = totalCommission ? (orderValue / totalCommission) : 0; // ratio\n\n  return {\n    clicks, sales, convRate, orderValue, aov,\n    pubCommission, totalCommission,\n    cpa, roi\n  };\n}\n\nconst cur = calc(currentData);\nconst prev = calc(previousData);\n\nfunction diff(a, b) { return a - b; }\nfunction varPct(a, b) { return b ? ((a - b) / b * 100) : null; }\n\nconst rows = [\n  {\n    Row: \"Recent\",\n    Clicks: fmtInt(cur.clicks),\n    Sales: fmtInt(cur.sales),\n    \"Conv Rate\": fmtPct2(cur.convRate),\n    \"Order value\": fmtMoney0(cur.orderValue),\n    \"AOV\": fmtMoney2(cur.aov),\n    \"Publ Commission\": fmtMoney0(cur.pubCommission),\n    \"Total Commission\": fmtMoney0(cur.totalCommission),\n    \"CPA\": fmtMoney2(cur.cpa),\n    \"ROI\": cur.roi ? cur.roi.toFixed(2) : \"\"\n  },\n  {\n    Row: \"Previous\",\n    Clicks: fmtInt(prev.clicks),\n    Sales: fmtInt(prev.sales),\n    \"Conv Rate\": fmtPct2(prev.convRate),\n    \"Order value\": fmtMoney0(prev.orderValue),\n    \"AOV\": fmtMoney2(prev.aov),\n    \"Publ Commission\": fmtMoney0(prev.pubCommission),\n    \"Total Commission\": fmtMoney0(prev.totalCommission),\n    \"CPA\": fmtMoney2(prev.cpa),\n    \"ROI\": prev.roi ? prev.roi.toFixed(2) : \"\"\n  },\n  {\n    Row: \"Difference\",\n    Clicks: (diff(cur.clicks, prev.clicks) >= 0 ? \"+\" : \"\") + fmtInt(diff(cur.clicks, prev.clicks)),\n    Sales: (diff(cur.sales, prev.sales) >= 0 ? \"+\" : \"\") + fmtInt(diff(cur.sales, prev.sales)),\n    \"Conv Rate\": fmtPct2(diff(cur.convRate, prev.convRate)),\n    \"Order value\": (diff(cur.orderValue, prev.orderValue) >= 0 ? \"+\" : \"\") + fmtMoney0(diff(cur.orderValue, prev.orderValue)).replace(\"£\", \"£\"),\n    \"AOV\": fmtMoney2(diff(cur.aov, prev.aov)),\n    \"Publ Commission\": (diff(cur.pubCommission, prev.pubCommission) >= 0 ? \"+\" : \"\") + fmtMoney0(diff(cur.pubCommission, prev.pubCommission)).replace(\"£\", \"£\"),\n    \"Total Commission\": (diff(cur.totalCommission, prev.totalCommission) >= 0 ? \"+\" : \"\") + fmtMoney0(diff(cur.totalCommission, prev.totalCommission)).replace(\"£\", \"£\"),\n    \"CPA\": fmtMoney2(diff(cur.cpa, prev.cpa)),\n    \"ROI\": diff(cur.roi, prev.roi).toFixed(2)\n  },\n  {\n    Row: \"% Variance\",\n    Clicks: fmtVar1(varPct(cur.clicks, prev.clicks)),\n    Sales: fmtVar1(varPct(cur.sales, prev.sales)),\n    \"Conv Rate\": fmtVar1(varPct(cur.convRate, prev.convRate)),\n    \"Order value\": fmtVar1(varPct(cur.orderValue, prev.orderValue)),\n    \"AOV\": fmtVar1(varPct(cur.aov, prev.aov)),\n    \"Publ Commission\": fmtVar1(varPct(cur.pubCommission, prev.pubCommission)),\n    \"Total Commission\": fmtVar1(varPct(cur.totalCommission, prev.totalCommission)),\n    \"CPA\": fmtVar1(varPct(cur.cpa, prev.cpa)),\n    \"ROI\": fmtVar1(varPct(cur.roi, prev.roi))\n  }\n];\n\nconst dataForAI = `Program YoY Summary Table (Recent vs Previous)\\n${JSON.stringify(rows, null, 2)}`;\n\nreturn [{\n  json: {\n    dataForAI,\n    programYoYTable: rows\n  }\n}];\n"
+      },
+      "name": "Process YoY Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1296,
+        1856
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{$json.dataForAI}}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nAs an expert affiliate marketing analyst at Tradedoubler, analyze this year-over-year program performance.\n\nProvide:\n\n**1. EXECUTIVE SUMMARY** (2-3 sentences)\n   • Overall performance trajectory (growth/decline/stable)\n   • Key highlight or primary concern\n\n**2. TOP INSIGHTS** (3-4 bullet points)\n   • Identify biggest movers (positive and negative)\n   • Flag metrics above/below benchmarks\n   • Note efficiency changes\n\n**3. DETAILED ANALYSIS**\n   • Traffic trends\n   • Conversion performance\n   • Revenue economics\n\n**4. RECOMMENDATIONS** (3-5 actionable items)\n   • Prioritize by impact\n   • Be specific and tactical\n   • Focus on optimization opportunities\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n**Industry Benchmarks:**\n• Good CTR: 1.5-3%\n• Good CVR: 2-5%\n• Healthy Take Rate: 10-20%\n• Significant change: >20% YoY\n\nBe concise, data-driven, and actionable.",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are an expert affiliate marketing analyst at Tradedoubler with 10+ years experience. You specialize in year-over-year performance analysis, identifying trends, and providing actionable recommendations. You understand KPIs like CTR, CVR, EPC, take rate, AOV, and can compare them against industry benchmarks. You're direct, insightful, and focused on driving business outcomes."
+        }
+      },
+      "name": "AI Agent: Analyze Performance",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        1504,
+        1744
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "worksheet",
+        "operation": "readRows",
+        "workbook": {
+          "__rl": true,
+          "value": "016IEPKXTALTFVRAAS5ZGKF7KTDBSSUUVU",
+          "mode": "list",
+          "cachedResultName": "statistic-program (1)",
+          "cachedResultUrl": "https://tradedoublergroup-my.sharepoint.com/personal/harry_collins_tradedoubler_com/_layouts/15/Doc.aspx?sourcedoc=%7B58CB5C60-1280-4CEE-A2FD-5318652A52B4%7D&file=statistic-program%20(1).xlsx&action=default&mobileredirect=true&DefaultItemOpen=1"
+        },
+        "worksheet": {
+          "__rl": true,
+          "value": "{19A61FE6-40E2-4040-847B-3180CE2A2964}",
+          "mode": "list",
+          "cachedResultName": "Publisher",
+          "cachedResultUrl": "https://tradedoublergroup-my.sharepoint.com/personal/harry_collins_tradedoubler_com/_layouts/15/Doc.aspx?sourcedoc=%7B58CB5C60-1280-4CEE-A2FD-5318652A52B4%7D&file=statistic-program%20(1).xlsx&action=default&mobileredirect=true&DefaultItemOpen=1&activeCell=Publisher!A1"
+        },
+        "options": {}
+      },
+      "name": "Excel: Get Publisher Rows1",
+      "type": "n8n-nodes-base.microsoftExcel",
+      "position": [
+        928,
+        2032
+      ],
+      "typeVersion": 2,
+      "credentials": {
+        "microsoftExcelOAuth2Api": {
+          "id": "E3yG3eQSTfJEDfeA",
+          "name": "Microsoft Excel account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process Publisher QBR Pack1  (FIX: also output dataForAI for the AI node)\nfunction safeNum(x) {\n  const n = Number(x);\n  return Number.isFinite(n) ? n : 0;\n}\n\nfunction safePct(x) {\n  if (x === null || x === undefined || x === \"\") return null;\n  if (typeof x === \"string\" && x.trim().endsWith(\"%\")) {\n    const v = Number(x.trim().slice(0, -1));\n    return Number.isFinite(v) ? v : null;\n  }\n  const v = Number(x);\n  return Number.isFinite(v) ? v : null;\n}\n\nfunction fmtMoney0(x) {\n  return `£${Math.round(x).toLocaleString()}`;\n}\nfunction fmtInt(x) {\n  return Math.round(x).toLocaleString();\n}\nfunction fmtYoY(x) {\n  if (x === null || x === undefined || Number.isNaN(x)) return \"\";\n  const v = Number(x);\n  if (!Number.isFinite(v)) return \"\";\n  return `${v >= 0 ? \"+\" : \"\"}${v.toFixed(0)}%`;\n}\n\n// --- POC categorisation ---\nfunction inferPublisherType(nameRaw) {\n  const name = String(nameRaw || \"\").toLowerCase();\n  if (/(blue light|defence|teachers|carers|charity worker|health service|totum|benifex|telus|perk|benefit|nextjump|perksatwork|studentbeans)/.test(name))\n    return \"Closed User Groups\";\n  if (/(cashback|quidco|topcashback|easyfundraising|swagbucks|reward gateway|rakuten|give as you live|vc loyalty|wanteed)/.test(name))\n    return \"Cashback\";\n  if (/(voucher|vouchers|codes|coupon|deal|deals|discount|hotukdeals|savoo|wowcher|bravovoucher|latest deals|vouchercloud|purpl|purplee|vouchercodes|voucherbox|netvouchercodes)/.test(name))\n    return \"Discount & Voucher Sites\";\n  if (/(css|google shopping|comparison|compare|idealo|redbrain|shoparize|shopia|expandeo|priceplanet|delupe|genie shopping)/.test(name))\n    return \"CSS\";\n  if (/(skimlinks|soreto|subnetwork|network|linkhaitao|affilizz|convert)/.test(name))\n    return \"Subnetworks\";\n  return \"Other\";\n}\n\nfunction mapRow(d) {\n  return {\n    publisher: d.sourceName ?? d.publisher ?? d.Publisher ?? \"Unknown\",\n\n    ov: safeNum(d.orderValue ?? d.ov ?? d.OV),\n    ovYoY: safePct(d.orderValueYoY ?? d.ovYoY ?? d[\"OV YoY\"]),\n\n    sales: safeNum(d.sales ?? d.Sales),\n    salesYoY: safePct(d.salesYoY ?? d[\"Sales YoY\"]),\n\n    clicks: safeNum(d.clicks ?? d.Clicks),\n    clicksYoY: safePct(d.clicksYoY ?? d[\"Clicks YoY\"]),\n  };\n}\n\nconst rows = $input.all().map(i => i.json).map(mapRow);\n\nconst enriched = rows.map(r => ({\n  ...r,\n  publisherType: inferPublisherType(r.publisher),\n}));\n\nconst byType = new Map();\nfor (const r of enriched) {\n  if (!byType.has(r.publisherType)) byType.set(r.publisherType, []);\n  byType.get(r.publisherType).push(r);\n}\n\nconst orderedTypes = [\n  \"Closed User Groups\",\n  \"Cashback\",\n  \"Discount & Voucher Sites\",\n  \"CSS\",\n  \"Subnetworks\",\n  \"Other\",\n];\n\nconst packs = [];\n\nfor (const type of orderedTypes) {\n  const pubs = byType.get(type) || [];\n  if (!pubs.length) continue;\n\n  const top = [...pubs].sort((a, b) => b.ov - a.ov).slice(0, 12);\n\n  const totals = top.reduce((a, r) => {\n    a.ov += r.ov;\n    a.sales += r.sales;\n    a.clicks += r.clicks;\n    return a;\n  }, { ov: 0, sales: 0, clicks: 0 });\n\n  const tableRows = top.map(r => ({\n    Publisher: r.publisher,\n    \"OV\": fmtMoney0(r.ov),\n    \"OV YoY\": fmtYoY(r.ovYoY),\n    \"Sales\": fmtInt(r.sales),\n    \"Sales YoY\": fmtYoY(r.salesYoY),\n    \"Clicks\": fmtInt(r.clicks),\n    \"Clicks YoY\": fmtYoY(r.clicksYoY),\n  }));\n\n  packs.push({\n    publisherType: type,\n    totals: {\n      OV: fmtMoney0(totals.ov),\n      Sales: fmtInt(totals.sales),\n      Clicks: fmtInt(totals.clicks),\n    },\n    tableRows,\n  });\n}\n\nreturn [{\n  json: {\n    publisherTypeTables: packs,\n    dataForAI: JSON.stringify(packs, null, 2)\n  }\n}];\n"
+      },
+      "name": "Process Publisher QBR Pack1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1216,
+        2032
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=// AI Agent: Publisher QBR1  (FIX: use dataForAI, not missing field)\n={{$json.dataForAI}}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nYou are preparing a QBR-style analysis of performance by publisher type.\nThis is SINGLE PERIOD analysis (not YoY).\n\nFor EACH publisher type, write:\n\n### <Publisher Type>\n**EXEC SUMMARY** (1–2 sentences)\n**KEY INSIGHTS** (3 bullets)\n**ACTIONS** (3–5 bullets)\n\nRules:\n- Use only the data provided.\n- Do NOT invent metrics that are not present.\n- Keep it concise and QBR-ready.\n",
+        "options": {
+          "systemMessage": "You are an expert affiliate marketing analyst at Tradedoubler. You write QBR-ready performance analysis by publisher type and provide tactical, realistic actions."
+        }
+      },
+      "name": "AI Agent: Publisher QBR1",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        1504,
+        2112
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build Final Response1  (USE THIS)\n\nconst program = $json.programOutput || \"(No program analysis returned)\";\nconst programYoYTable = $json.programYoYTable || [];\n\nconst publisherAnalysis = $json.publisherAnalysis || \"(No publisher analysis returned)\";\nconst tables = $json.publisherTables || [];\n\nfunction mdTable(rows) {\n  if (!rows || !rows.length) return \"(no rows)\";\n  const headers = Object.keys(rows[0]);\n  const sep = headers.map(() => \"---\");\n  return [\n    `| ${headers.join(\" | \")} |`,\n    `| ${sep.join(\" | \")} |`,\n    ...rows.map(r => `| ${headers.map(h => String(r[h] ?? \"\")).join(\" | \")} |`)\n  ].join(\"\\n\");\n}\n\nconst programTableMd = mdTable(programYoYTable);\n\nconst publisherTablesMd = tables.map(t =>\n  `### ${t.publisherType}\\n` +\n  `Totals: OV ${t.totals.OV} | Sales ${t.totals.Sales} | Clicks ${t.totals.Clicks}\\n\\n` +\n  mdTable(t.tableRows)\n).join(\"\\n\\n---\\n\\n\");\n\nreturn [{\n  json: {\n    output:\n`## Program YoY Analysis\n${program}\n\n### YoY Summary Table\n${programTableMd}\n\n---\n\n## Publisher Performance by Type\n${publisherAnalysis}\n\n---\n\n## Publisher Tables\n${publisherTablesMd || \"(No publisher tables)\"}`\n  }\n}];\n"
+      },
+      "name": "Build Final Response1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2272,
+        1936
+      ]
+    },
+    {
+      "parameters": {
+        "message": "={{$json.output}}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chat",
+      "typeVersion": 1,
+      "position": [
+        2480,
+        1936
+      ],
+      "name": "Respond to Chat"
+    },
+    {
+      "parameters": {
+        "model": "gpt-4o",
+        "options": {
+          "maxTokens": 3000,
+          "temperature": 0.3
+        }
+      },
+      "name": "OpenAI GPT-1",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1,
+      "position": [
+        1872,
+        2400
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "L4g2aVcKF4eab59w",
+          "name": "OpenAi account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Tag Program Output  (UPDATE to also pass the table)\nreturn [{\n  json: {\n    programOutput: $json.output ?? \"\",\n    programYoYTable: $node[\"Process YoY Data\"].json.programYoYTable ?? []\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1824,
+        1840
+      ],
+      "name": "Tag Program Output"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Tag Publisher Output  (FIX: pass BOTH analysis + tables)\nreturn [{\n  json: {\n    publisherAnalysis: $json.output ?? \"\",\n    publisherTables: $node[\"Process Publisher QBR Pack1\"].json.publisherTypeTables ?? []\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1824,
+        2080
+      ],
+      "name": "Tag Publisher Output"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Fan-out context node\n// Connect this node to BOTH branches (program YoY + publisher QBR)\n\nconst incomingText =\n  $json?.message?.text ??\n  $json?.chatInput ??\n  $json?.text ??\n  \"\";\n\n// For now, always run both branches\nreturn [\n  {\n    json: {\n      incomingText,\n      runProgram: true,\n      runPublisher: true\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        608,
+        1952
+      ],
+      "name": "split data"
+    }
+  ],
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "split data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge AI Outputs": {
+      "main": [
+        [
+          {
+            "node": "Build Final Response1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Excel: Get Current Period": {
+      "main": [
+        [
+          {
+            "node": "Excel: Get Previous Period",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Excel: Get Previous Period": {
+      "main": [
+        [
+          {
+            "node": "Process YoY Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process YoY Data": {
+      "main": [
+        [
+          {
+            "node": "AI Agent: Analyze Performance",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent: Analyze Performance": {
+      "main": [
+        [
+          {
+            "node": "Tag Program Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Excel: Get Publisher Rows1": {
+      "main": [
+        [
+          {
+            "node": "Process Publisher QBR Pack1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Publisher QBR Pack1": {
+      "main": [
+        [
+          {
+            "node": "AI Agent: Publisher QBR1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent: Publisher QBR1": {
+      "main": [
+        [
+          {
+            "node": "Tag Publisher Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Final Response1": {
+      "main": [
+        [
+          {
+            "node": "Respond to Chat",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI GPT-1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent: Analyze Performance",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "AI Agent: Publisher QBR1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tag Program Output": {
+      "main": [
+        [
+          {
+            "node": "Merge AI Outputs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tag Publisher Output": {
+      "main": [
+        [
+          {
+            "node": "Merge AI Outputs",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "split data": {
+      "main": [
+        [
+          {
+            "node": "Excel: Get Current Period",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Excel: Get Publisher Rows1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {},
+  "tags": [],
+  "active": false
+}

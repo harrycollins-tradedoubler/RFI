@@ -1,0 +1,8 @@
+{
+  "framework": "vite",
+  "functions": {
+    "api/chat.js": {
+      "regions": ["fra1"]
+    }
+  }
+}

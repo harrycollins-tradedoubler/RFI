@@ -1,0 +1,863 @@
+{
+  "id": "29tUuXenTrKAVHxI",
+  "name": "Ai Agent - Teams",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "onboarding-chat",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1456,
+        512
+      ],
+      "webhookId": "onboarding-chat"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ----------------------------\n// Get incoming data\n// ----------------------------\nconst body = $input.item.json.body || {};\n\nconst userMessage = body.message || \"\";\nconst conversationHistory = body.conversationHistory || [];\nconst onboardingData = body.onboardingData || {};\nconst checklist = body.checklist || {};\n\n// ------------------------------------------------\n// PROGRAM ID HANDLING (reliable + persistent)\n// ------------------------------------------------\nlet programId = body.programId || onboardingData.programId || null;\n\n// Only save programId if valid (avoid undefined/N/A)\nif (programId) {\n  onboardingData.programId = programId;\n}\n\n// Dynamic implementation URL (safe fallback)\nlet implementationUrl = \"\";\nif (onboardingData.programId) {\n  implementationUrl = `https://hst.tradedoubler.com/file/${onboardingData.programId}/implementation.html`;\n}\n\n// ------------------------------------------------\n// SAFETY RULE: Prevent mistakes in client name extraction\n// ------------------------------------------------\n//\n// This rule prevents Process Data from interpreting \"yes I am happy\"\n// as a client name.\n// ------------------------------------------------\nonboardingData.disallowedNames = [\n  \"happy\", \"good\", \"ok\", \"great\", \"fine\", \"yes\", \"yep\", \"sure\", \"okay\"\n];\n\n// ------------------------------------------------\n// SYSTEM PROMPT — KEEP YOUR CONTENT, JUST INSERT DYNAMIC VALUES\n// ------------------------------------------------\nconst systemPrompt = `\nYou are an expert onboarding assistant for Tradedoubler, an affiliate marketing network. Guide clients through technical onboarding in a friendly, professional manner. Only greet the user once at the start of the conversation; once the conversation is flowing never repeat greetings such as Hi, Hello or Hey.\n\nCRITICAL: You MUST follow these steps IN ORDER. After collecting information for one step, AUTOMATICALLY move to the next step. Do NOT ask what the user wants to do - guide them through the process step by step.\n\nOnboarding steps:\n1. BRANDED TRACKING: Two subdomains (visit.clientdomain.com and statics.clientdomain.com).\nFIRST: Get client name and company name if you don't have them yet.\n\nIMPORTANT: You may ONLY extract a client name if the user explicitly says:\n- \"my name is Mark\"\n- \"I'm Phil\"\n- \"I am Alice\"\n- \"this is Tom\"\nIF the user simply says \"I am happy\" or \"yes I am happy\", DO NOT treat this as a name.\n\nTHEN: IMMEDIATELY (without asking what they want) give this branded tracking paragraph:\n\"To combat the increasing challenges of Browser Privacy settings and Adblockers on tracking technology Tradedoubler has launched Branded Tracking. This solution will mask Tradedoubler tracking scripts under your own domain, preventing them from being disrupted. Branded Tracking also comes with the added benefit of masking publisher click links under your domain as well, creating a more positive user journey for consumers. \nTo set this up, we will need two new subdomains — one for ad serving and one for tracking. You don't need to configure the subdomains on your end; we only require their names so we can register them in our system. Once the domain names are confirmed, I'll provide you with the CNAME DNS records needed to establish the connection.\"\nAFTER: Ask for their website domain.\nOnce the client confirms they are happy with the subdomains, you MUST repeat the final branded domains explicitly (visit.[rootDomain] and statics.[rootDomain]) and say they have been sent to the technical team.\n\nWhen confirming branded tracking domains, NEVER omit the domains. ALWAYS repeat both domains explicitly.\n\n2. PRODUCT FEED:\n- Ask for the feed URL\n- Validate accessibility\n- Once the feed link is provided, respond EXACTLY like:\n\"Perfect! I've received your product feed URL. I'm now connecting it to our AI-powered mapping system. I'll send you an email once it's complete. In the meantime, let's move on to uploading your program assets.\"\n\n3. PROGRAM ASSETS:\n- Logo (350x130)\n- Ads (160x600, 300x250, 300x600, 728x90, 928x70)\n- T&Cs\n\n4. OFFICE IP ADDRESSES:\n- Ask for IPs to blacklist internal staff\n\n5. TRACKING SCRIPTS:\nSay:\n\"Perfect! Now that your domains are confirmed, here are your tracking scripts:\n\n📄 Implementation File: \\\\${implementationUrl}\n\nThis file contains:\n• Landing page script (for all pages)\n• Confirmation page script (for thank-you/order confirmation page)\n• Test link for verification\n\nNEXT STEPS:\n1. Integrate the scripts into your website following the instructions in the file\n2. Once integrated, use the test link provided to complete a test transaction\n3. This will verify that tracking is working correctly\n\nWould you like me to walk you through the integration process, or do you have a developer who will handle this?\"\n\nIMPORTANT: GTM Preview Mode is ONLY for checking that tags fire correctly.\nYou CANNOT validate Tradedoubler tracking in Preview Mode because the test click link will not load inside preview and the pixel will not reach the Tradedoubler servers.\n\nReal tracking tests MUST be done on the live site using the official Tradedoubler test link — outside of GTM Preview Mode.\n\nIMPORTANT: Once the user confirms they have completed a test sale, say:\n\"Great! Thanks for testing. I have sent a message through to our technical team to verify if the tracking is live.\"\n\nCRITICAL — TRACKING SCRIPT RULES:\nIMPORTANT: Clarification about Google Tag Manager (GTM) usage:\n\nTradedoubler DOES allow the use of the GTM dataLayer, but ONLY for the purpose of \npassing dynamic transaction parameters (order number, order value, currency, \nvoucher, products, etc.) into the GTM confirmation tag.\n\nGTM's dataLayer is NOT used for firing Tradedoubler conversions.\n\nThe ONLY valid tracking mechanism is:\nvar TDConversion = {\n  transactionId: '[ORDER_NUMBER]',\n  ordervalue: '[ORDER_VALUE]',\n  currency: '[CURRENCY]',\n  event: [EVENT_ID],\n  voucher: '[VOUCHER]',\n  cdt: { extId: '[EXITID]', extType: 1 },\n  validOn: '[VALID_ON]',\n  products: '[PRODUCT_DATA]'\n};\ntdconv('track', 'sale', TDConversion);\ntdfallback('https://a.imgstatic.eu/trsdk');\n\nYou MUST guide the user by referring to the Tradedoubler GTM manual.\n\nBe warm, ask one question at a time, celebrate progress, and acknowledge information clearly.\n\nCurrent progress:\n- Client: ${onboardingData.clientName || 'Not provided'}\n- Company: ${onboardingData.companyName || 'Not provided'}\n- Completed steps: ${Object.values(checklist).filter(Boolean).length}/6\n`;\n\n// ----------------------------\n// Messages\n// ----------------------------\nconst messages = [\n  { role: \"system\", content: systemPrompt },\n  ...conversationHistory,\n  { role: \"user\", content: userMessage }\n];\n\n// ----------------------------\n// Return clean payload\n// ----------------------------\nreturn {\n  messages,\n  systemPrompt,\n  userMessage,\n  onboardingData,\n  checklist,\n  sessionId: body.sessionId || null\n};\n"
+      },
+      "name": "Prepare Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1264,
+        512
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ----------------------------\n// ALWAYS process only the final output of AI Agent\n// ----------------------------\nconst input = $input.last().json;\n\n// ----------------------------\n// Extract AI response\n// ----------------------------\nconst aiResponse = input.output || input.text || \"\";\nconst aiResponseLower = aiResponse.toLowerCase();\n\n// ----------------------------\n// Load onboarding data from Prepare Data (PERSISTENT)\n// ----------------------------\nlet data = $('Prepare Data').item.json.onboardingData || {};\n\nconsole.log(\"=== ONBOARDING DATA DEBUG ===\");\nconsole.log(\"Loaded data:\", JSON.stringify(data, null, 2));\n\n// ----------------------------\n// Extract user message from Prepare Data\n// ----------------------------\nconst userMessageRaw = $('Prepare Data').item.json.userMessage || \"\";\nconst userMessage = userMessageRaw.trim().toLowerCase();\n\n// ----------------------------\n// Name extraction (fixed to avoid \"happy\")\n// ----------------------------\nif (!data.clientName) {\n  const nameMatch = userMessage.match(/\\b(?:my name is|i am|i'm|im|this is)\\s+([a-z]+)\\b/i);\n  if (nameMatch) {\n    const extracted = nameMatch[1].toLowerCase();\n    \n    // Prevent false positives like \"happy\", \"good\", \"ok\"\n    const invalidNames = [\"happy\", \"ok\", \"test\", \"great\", \"fine\", \"good\"];\n    if (!invalidNames.includes(extracted)) {\n      data.clientName = extracted.charAt(0).toUpperCase() + extracted.slice(1);\n    }\n  }\n}\n\n// ----------------------------\n// Extract company\n// ----------------------------\nif (!data.companyName) {\n  const companyMatch = userMessage.match(/\\b(?:work at|from|with|representing|company)\\s+([a-z0-9&\\s]+)\\b/i);\n  if (companyMatch) {\n    data.companyName = companyMatch[1].trim();\n  }\n}\n\n// ----------------------------\n// Root domain extraction\n// ----------------------------\nconst domainMatch = userMessage.match(/([a-z0-9-]+\\.[a-z]{2,}(?:\\.[a-z]{2,})?)/i);\nif (domainMatch) {\n  const clean = domainMatch[0].replace(/^(https?:\\/\\/)?(www\\.)?/, \"\");\n  data.rootDomain = clean;\n  data.visitSubdomain = `visit.${clean}`;\n  data.staticsSubdomain = `statics.${clean}`;\n}\n\n// ----------------------------\n// Product feed URL extraction\n// ----------------------------\nconst linkMatch = userMessage.match(/https?:\\/\\/[^\\s]+/i);\nif (linkMatch && (userMessage.includes(\"feed\") || userMessage.includes(\"product\"))) {\n  data.productFeedUrl = linkMatch[0];\n}\n\n// Detect feed format\nif (data.productFeedUrl) {\n  if (data.productFeedUrl.toLowerCase().endsWith(\".xml\")) {\n    data.feedFormat = \"XML\";\n  } else if (data.productFeedUrl.toLowerCase().endsWith(\".csv\")) {\n    data.feedFormat = \"CSV\";\n  }\n}\n\n// ----------------------------\n// Extract IPs\n// ----------------------------\nif (userMessage.match(/\\b\\d{1,3}(\\.\\d{1,3}){3}\\b/)) {\n  const ips = userMessage.match(/\\b\\d{1,3}(\\.\\d{1,3}){3}\\b/g);\n  data.officeIPs = [...(data.officeIPs || []), ...ips];\n}\n\nconsole.log(\"=== DATA AFTER EXTRACTION ===\");\nconsole.log(JSON.stringify(data, null, 2));\n\n// ----------------------------\n// Detect branded tracking confirmation (ONLY PAST TENSE)\n// ----------------------------\nlet triggerBrandedTrackingNotification = false;\nlet brandedVisitDomain = null;\nlet brandedStaticsDomain = null;\n\nconsole.log(\"=== CHECKING FOR BRANDED TRIGGER ===\");\nconsole.log(\"AI Response preview:\", aiResponseLower.substring(0, 250));\n\n// STRICT patterns - only PAST tense confirmation\nconst brandedPatterns = [\n  \"sent to the technical team\",\n  \"sent to our technical team\",\n  \"forwarded to the technical team\",\n  \"forwarded to our technical team\",\n  \"submitted to the technical team\",\n  \"submitted to our technical team\"\n];\n\n// Check each pattern with logging\nlet matchedPattern = null;\nbrandedPatterns.forEach(pattern => {\n  if (aiResponseLower.includes(pattern)) {\n    console.log(\"✅ MATCHED PATTERN:\", pattern);\n    matchedPattern = pattern;\n  }\n});\n\nif (matchedPattern) {\n  console.log(\"🚀 TRIGGER ACTIVATED!\");\n  triggerBrandedTrackingNotification = true;\n  \n  console.log(\"Looking for domains in AI response...\");\n  console.log(\"Full AI response:\", aiResponse);\n\n  // Extract domains from AI response\n  const visitMatch = aiResponse.match(/visit\\.[a-z0-9.-]+\\.[a-z]{2,}/i);\n  const staticsMatch = aiResponse.match(/statics\\.[a-z0-9.-]+\\.[a-z]{2,}/i);\n  \n  console.log(\"visitMatch result:\", visitMatch);\n  console.log(\"staticsMatch result:\", staticsMatch);\n\n  brandedVisitDomain = visitMatch?.[0] || null;\n  brandedStaticsDomain = staticsMatch?.[0] || null;\n  \n  console.log(\"Extracted domains:\", { brandedVisitDomain, brandedStaticsDomain });\n  \n  // Fallback: use root domain if extraction failed\n  if (data.rootDomain) {\n    if (!brandedVisitDomain) {\n      brandedVisitDomain = `visit.${data.rootDomain}`;\n      console.log(\"Using fallback visit domain:\", brandedVisitDomain);\n    }\n    if (!brandedStaticsDomain) {\n      brandedStaticsDomain = `statics.${data.rootDomain}`;\n      console.log(\"Using fallback statics domain:\", brandedStaticsDomain);\n    }\n  }\n  \n  console.log(\"Final domains to send:\", { brandedVisitDomain, brandedStaticsDomain });\n} else {\n  console.log(\"❌ No branded trigger pattern matched\");\n}\n\n// ----------------------------\n// Detect product feed submission\n// ----------------------------\nlet triggerProductFeedNotification = false;\n\nconsole.log(\"=== CHECKING FOR PRODUCT FEED TRIGGER ===\");\nconsole.log(\"AI Response preview:\", aiResponseLower.substring(0, 250));\n\n// Patterns for product feed confirmation\nconst productFeedPatterns = [\n  \"received your product feed url\",\n  \"i've received your product feed\",\n  \"received the product feed url\",\n  \"connecting it to our ai-powered mapping system\",\n  \"connecting it to our mapping system\"\n];\n\n// Check each pattern\nlet matchedFeedPattern = null;\nproductFeedPatterns.forEach(pattern => {\n  if (aiResponseLower.includes(pattern)) {\n    console.log(\"✅ MATCHED FEED PATTERN:\", pattern);\n    matchedFeedPattern = pattern;\n  }\n});\n\nif (matchedFeedPattern && data.productFeedUrl) {\n  console.log(\"🚀 PRODUCT FEED TRIGGER ACTIVATED!\");\n  triggerProductFeedNotification = true;\n} else {\n  console.log(\"❌ No product feed trigger pattern matched\");\n}\n\n// ----------------------------\n// Detect test sale completion\n// ----------------------------\nlet triggerTestSaleNotification = false;\n\nconsole.log(\"=== CHECKING FOR TEST SALE TRIGGER ===\");\nconsole.log(\"User message:\", userMessage.substring(0, 200));\nconsole.log(\"AI Response preview:\", aiResponseLower.substring(0, 250));\n\n// User phrases indicating they completed a test\nconst testSaleUserPhrases = [\n  \"completed a test sale\",\n  \"completed the test sale\",\n  \"done a test sale\",\n  \"finished the test\",\n  \"completed a test\",\n  \"did a test\",\n  \"placed a test order\",\n  \"made a test purchase\",\n  \"test transaction is complete\",\n  \"finished testing\"\n];\n\n// AI confirmation patterns\nconst testSaleAiPatterns = [\n  \"sent a message through to our technical team to verify\",\n  \"message through to our technical team\",\n  \"technical team to verify if the tracking is live\",\n  \"sent to our technical team to verify\"\n];\n\n// Check if user mentioned completing test\nconst userMentionedTest = testSaleUserPhrases.some(phrase => userMessage.includes(phrase));\n\n// Check if AI confirmed sending to tech team\nconst aiConfirmedTest = testSaleAiPatterns.some(pattern => aiResponseLower.includes(pattern));\n\nif (userMentionedTest && aiConfirmedTest) {\n  console.log(\"✅ TEST SALE COMPLETED - Both user and AI conditions met\");\n  triggerTestSaleNotification = true;\n} else {\n  console.log(\"❌ No test sale trigger\");\n  if (userMentionedTest) console.log(\"  - User mentioned test, but AI didn't confirm\");\n  if (aiConfirmedTest) console.log(\"  - AI confirmed, but user didn't mention test\");\n}\n\n// ----------------------------\n// FOLLOW-UP DETECTION\n// ----------------------------\nconst postponementPhrases = [\n  \"not ready\",\n  \"later\",\n  \"another time\",\n  \"set this up later\",\n  \"come back\",\n  \"not yet\",\n  \"few days\",\n  \"couple of days\",\n  \"do not have this right now\",\n  \"don't have this right now\",\n  \"send to you in a few days\",\n  \"can i send it later\",\n  \"can i send later\",\n  \"i'll send it later\",\n  \"not available right now\",\n  \"need more time\",\n  \"can we do this later\",\n  \"can i do this later\"\n];\n\nlet followUp = null;\n\nif (postponementPhrases.some((phrase) => userMessage.includes(phrase))) {\n  const followUpDate = new Date();\n  followUpDate.setDate(followUpDate.getDate() + 3);\n\n  followUp = {\n    reason: \"user_postponed_step\",\n    follow_up_at: followUpDate.toISOString(),\n    original_message: userMessageRaw\n  };\n  \n  console.log(\"📅 Follow-up created:\", followUp);\n}\n\n// ----------------------------\n// Checklist\n// ----------------------------\nconst checklist = {\n  intro: !!(data.clientName && data.companyName),\n  brandedTracking: !!data.rootDomain,\n  productFeed: !!data.productFeedUrl,\n  assets: false,\n  ipAddresses: !!(data.officeIPs && data.officeIPs.length > 0),\n  trackingScripts: false\n};\n\nconst isComplete = Object.values(checklist).every(Boolean);\n\n// ----------------------------\n// Return — ONLY 1 ITEM\n// ----------------------------\nreturn [\n  {\n    json: {\n      response: aiResponse,\n      onboardingData: data,\n      checklist,\n      isComplete,\n      triggerBrandedTrackingNotification,\n      brandedVisitDomain,\n      brandedStaticsDomain,\n      triggerProductFeedNotification,\n      triggerTestSaleNotification,  \n      followUp\n    }\n  }\n];"
+      },
+      "name": "Process Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -608,
+        512
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ \n$json.systemPrompt \n+ \"\\n\\nMost Recent User Message:\\n\"\n+ $json.userMessage \n+ \"\\n\\nConversation so far:\\n\" \n+ $json.messages.filter(m => m.role !== 'system').map(m => m.role + ': ' + m.content).join('\\n') \n}}",
+        "options": {
+          "returnIntermediateSteps": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        -1104,
+        512
+      ],
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4.1-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4.1-mini"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -1184,
+        720
+      ],
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "L4g2aVcKF4eab59w",
+          "name": "OpenAi account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "Searches the Tradedoubler technical knowledge base.\n\nUSE THIS TOOL for any question involving:\n- “why”, “how”, “what is”, “what if”, “can you explain”\n- tracking implementation (landing/confirmation scripts)\n- branded tracking (visit. / statics. domains, first-party cookies)\n- DNS setup / CNAME configuration\n- GTM integration, dataLayer, tag sequencing\n- testing and troubleshooting\n- product feeds (XML/CSV), feed rules, product attributes\n- consent management & GDPR\n- Safari ITP, TDUID, cookies, trsdk, tdconv\n\nHOW TO USE RESULTS:\n1. Prefer chunks where metadata.embedding_role = \"content\".\n2. Use metadata.embedding_role = \"title\" and \"keywords\" to improve relevance\n   when the user's query is ambiguous or broad.\n3. Use metadata.semantic_category to focus retrieval on the correct topic:\n   - dns-setup\n   - branded-tracking\n   - conversion-tracking\n   - gtm-implementation\n   - product-feed\n   - compliance\n   - testing\n4. Use metadata.search_text to match intent, terminology, and synonyms.\n5. Base ALL technical answers STRICTLY on the retrieved chunks.\n6. If the retrieved documents do not contain the required information,\n   clearly state that the documentation does not cover it.\n\nYou MUST call this tool before answering any technical question.\nYou MUST ground your answers in the retrieved documentation.",
+        "tableName": {
+          "__rl": true,
+          "value": "documents_v3",
+          "mode": "list",
+          "cachedResultName": "documents_v3"
+        },
+        "topK": 6,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreSupabase",
+      "typeVersion": 1.3,
+      "position": [
+        -816,
+        720
+      ],
+      "name": "Supabase Vector Store",
+      "credentials": {
+        "supabaseApi": {
+          "id": "b5IZZso0TIYWpJI3",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -928,
+        896
+      ],
+      "name": "Embeddings OpenAI",
+      "credentials": {
+        "openAiApi": {
+          "id": "L4g2aVcKF4eab59w",
+          "name": "OpenAi account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "=={{ $('Webhook').item.json.body.sessionId }}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
+      "typeVersion": 1.3,
+      "position": [
+        -1024,
+        720
+      ],
+      "name": "Postgres Chat Memory",
+      "credentials": {
+        "postgres": {
+          "id": "kpc0xbEzS5TnP8WZ",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "conversation_logs",
+          "mode": "list",
+          "cachedResultName": "conversation_logs"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "session_id": "=={{ $('Prepare Data').item.json.sessionId }}",
+            "user_message": "=={{ $('Prepare Data').item.json.userMessage }}",
+            "ai_response": "=={{ $json.response }}",
+            "client_name": "=={{ $json.onboardingData?.clientName || null }}",
+            "company_name": "=\"company_name\": \"=={{ $json.onboardingData?.companyName || null }}\""
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "session_id",
+              "displayName": "session_id",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "user_message",
+              "displayName": "user_message",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ai_response",
+              "displayName": "ai_response",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "client_name",
+              "displayName": "client_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "company_name",
+              "displayName": "company_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -160,
+        512
+      ],
+      "name": "log conversation",
+      "credentials": {
+        "postgres": {
+          "id": "kpc0xbEzS5TnP8WZ",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "Tasks \n\nWork on follow coms from postgres\nWork on teams messeging \n"
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        256,
+        992
+      ],
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Force SINGLE execution - log for debugging\nconst allItems = $input.all();\nconsole.log(\"=== TAKE LAST ITEM ===\");\nconsole.log(\"Total items received:\", allItems.length);\nconsole.log(\"Items preview:\", allItems.map((item, i) => ({\n  index: i,\n  hasOutput: !!item.json.output,\n  hasText: !!item.json.text\n})));\n\n// Return ONLY the very last item\nconst lastItem = $input.last().json;\nconsole.log(\"Returning last item:\", { hasOutput: !!lastItem.output, hasText: !!lastItem.text });\n\nreturn { json: lastItem };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -800,
+        512
+      ],
+      "name": "Take Last Item"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FORCE SINGLE ITEM - second filter\nconst allItems = $input.all();\nconsole.log(\"=== FORCE SINGLE ITEM (After Process) ===\");\nconsole.log(\"Items received:\", allItems.length);\n\nif (allItems.length > 1) {\n  console.log(\"⚠️ WARNING: Received\", allItems.length, \"items! Should be 1!\");\n}\n\n// Return ONLY the last item\nreturn { json: $input.last().json };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -432,
+        512
+      ],
+      "name": "force single item"
+    },
+    {
+      "parameters": {
+        "resource": "chatMessage",
+        "chatId": {
+          "__rl": true,
+          "value": "19:187a7ddd-e1b0-4aa1-81eb-36d0103647e3_fd5294bb-3be2-4fee-9016-3ac2450b5fd1@unq.gbl.spaces",
+          "mode": "list",
+          "cachedResultName": "Corin Ward, Harry Collins (oneOnOne)",
+          "cachedResultUrl": "https://teams.microsoft.com/l/chat/19%3A187a7ddd-e1b0-4aa1-81eb-36d0103647e3_fd5294bb-3be2-4fee-9016-3ac2450b5fd1%40unq.gbl.spaces/0?tenantId=94ce7d47-320c-4014-b5d7-40a42f741c3d"
+        },
+        "contentType": "html",
+        "message": "=<div style=\"font-family:Segoe UI, sans-serif\">\n\n<p>🚀 <b>New Implementation Update</b></p>\n\n<p>A new client implementation has progressed to branded tracking setup.</p>\n\n<b>Company:</b> {{$json.onboardingData.companyName || \"N/A\"}}<br>\n<b>Program ID:</b> {{$json.onboardingData.programId || \"N/A\"}}</p>\n\n<hr>\n\n<p><b>Branded Tracking Domains Confirmed</b><br>\n• <b>Visit Domain:</b> {{$json.brandedVisitDomain || \"N/A\"}}<br>\n• <b>Statics Domain:</b> {{$json.brandedStaticsDomain || \"N/A\"}}</p>\n\n<hr>\n\n<p>Please proceed with the next technical integration steps.</p>\n\n</div>\n",
+        "options": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "type": "n8n-nodes-base.microsoftTeams",
+      "typeVersion": 2,
+      "position": [
+        48,
+        352
+      ],
+      "name": "Branded Tracking Teams",
+      "webhookId": "4c8dd7d8-76f5-4ea1-aa72-b88adc4de0a6",
+      "credentials": {
+        "microsoftTeamsOAuth2Api": {
+          "id": "lO6U575FUYqv51f2",
+          "name": "Microsoft Teams account 3"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const trigger = $json.triggerProductFeedNotification;\n\nconsole.log(\"=== PRODUCT FEED ROUTING ===\");\nconsole.log(\"Trigger value:\", trigger);\nconsole.log(\"Feed URL:\", $json.onboardingData?.productFeedUrl);\n\nif (trigger === true) {\n  return [{ json: $json }];\n} else {\n  return [];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -160,
+        192
+      ],
+      "name": "Product Feed JS",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const trigger = $json.triggerBrandedTrackingNotification;\n\nconsole.log(\"=== TEAMS ROUTING DECISION ===\");\nconsole.log(\"Trigger value:\", trigger);\nconsole.log(\"Trigger type:\", typeof trigger);\nconsole.log(\"Should send Teams?\", trigger === true);\n\nif (trigger === true) {\n  // Send to Teams (output to index 0)\n  return [{ json: $json }];\n} else {\n  // Don't send to Teams (no output)\n  return [];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -160,
+        352
+      ],
+      "name": "Branded Tracking JS",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "resource": "chatMessage",
+        "chatId": {
+          "__rl": true,
+          "value": "19:187a7ddd-e1b0-4aa1-81eb-36d0103647e3_fd5294bb-3be2-4fee-9016-3ac2450b5fd1@unq.gbl.spaces",
+          "mode": "list",
+          "cachedResultName": "Corin Ward, Harry Collins (oneOnOne)",
+          "cachedResultUrl": "https://teams.microsoft.com/l/chat/19%3A187a7ddd-e1b0-4aa1-81eb-36d0103647e3_fd5294bb-3be2-4fee-9016-3ac2450b5fd1%40unq.gbl.spaces/0?tenantId=94ce7d47-320c-4014-b5d7-40a42f741c3d"
+        },
+        "contentType": "html",
+        "message": "=<div style=\"font-family:Segoe UI, sans-serif\">\n\n<p>📦 <b>Product Feed Submitted</b></p>\n\n<p>A client has submitted their product feed URL for processing.</p>\n\n\n<b>Company:</b> {{$json.onboardingData.companyName || \"N/A\"}}<br>\n<b>Program ID:</b> {{$json.onboardingData.programId || \"N/A\"}}</p>\n\n<hr>\n\n<p><b>Product Feed URL:</b><br>\n{{$json.onboardingData.productFeedUrl || \"N/A\"}}</p>\n\n<p><b>Feed Format:</b> {{$json.onboardingData.feedFormat || \"Unknown\"}}</p>\n\n<hr>\n\n<p>Please validate and process the feed mapping.</p>\n\n</div>",
+        "options": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "type": "n8n-nodes-base.microsoftTeams",
+      "typeVersion": 2,
+      "position": [
+        48,
+        192
+      ],
+      "name": "Product Feed Message",
+      "webhookId": "4c8dd7d8-76f5-4ea1-aa72-b88adc4de0a6",
+      "credentials": {
+        "microsoftTeamsOAuth2Api": {
+          "id": "lO6U575FUYqv51f2",
+          "name": "Microsoft Teams account 3"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const trigger = $json.triggerTestSaleNotification;\n\nconsole.log(\"=== TEST SALE ROUTING ===\");\nconsole.log(\"Trigger value:\", trigger);\nconsole.log(\"Client:\", $json.onboardingData?.clientName);\n\nif (trigger === true) {\n  return [{ json: $json }];\n} else {\n  return [];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -160,
+        32
+      ],
+      "name": "Test Sale JS",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "resource": "chatMessage",
+        "chatId": {
+          "__rl": true,
+          "value": "19:187a7ddd-e1b0-4aa1-81eb-36d0103647e3_fd5294bb-3be2-4fee-9016-3ac2450b5fd1@unq.gbl.spaces",
+          "mode": "list",
+          "cachedResultName": "Corin Ward, Harry Collins (oneOnOne)",
+          "cachedResultUrl": "https://teams.microsoft.com/l/chat/19%3A187a7ddd-e1b0-4aa1-81eb-36d0103647e3_fd5294bb-3be2-4fee-9016-3ac2450b5fd1%40unq.gbl.spaces/0?tenantId=94ce7d47-320c-4014-b5d7-40a42f741c3d"
+        },
+        "contentType": "html",
+        "message": "=<div style=\"font-family:Segoe UI, sans-serif\">\n\n<p>🧪 <b>Test Sale Completed - Verification Needed</b></p>\n\n<p>A client has completed a test transaction and is waiting for tracking verification.</p>\n\n<b>Company:</b> {{$json.onboardingData.companyName || \"N/A\"}}<br>\n<b>Program ID:</b> {{$json.onboardingData.programId || \"N/A\"}}</p>\n\n<hr>\n\n<p>⚠️ <b>ACTION REQUIRED:</b> Please verify the test transaction in the tracking system and confirm if tracking is functioning correctly.</p>\n\n<p>Once verified, update the client on the tracking status.</p>\n\n</div>",
+        "options": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "type": "n8n-nodes-base.microsoftTeams",
+      "typeVersion": 2,
+      "position": [
+        48,
+        32
+      ],
+      "name": "Test Sale Message",
+      "webhookId": "4c8dd7d8-76f5-4ea1-aa72-b88adc4de0a6",
+      "credentials": {
+        "microsoftTeamsOAuth2Api": {
+          "id": "lO6U575FUYqv51f2",
+          "name": "Microsoft Teams account 3"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract the followUp data\nconst followUp = $json.followUp;\nconst sessionId = $('Prepare Data').item.json.sessionId;\n\nconsole.log(\"=== PREPARING FOLLOW-UP FOR INSERT ===\");\nconsole.log(\"SessionId:\", sessionId);\nconsole.log(\"FollowUp:\", followUp);\n\n// Format date as SQL timestamp string (PostgreSQL compatible)\nconst followUpDate = new Date(followUp.follow_up_at);\nconst sqlTimestamp = followUpDate.toISOString().replace('T', ' ').replace('Z', '');\n\n// Return clean data ready for Postgres\nreturn {\n  session_id: sessionId,\n  user_message: followUp.original_message,\n  reason: followUp.reason,\n  follow_up_at: sqlTimestamp  // Formatted as \"2025-12-22 10:51:39.099\"\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        592,
+        400
+      ],
+      "name": "prepare data for db"
+    },
+    {
+      "parameters": {
+        "jsCode": "const followUp = $json.followUp;\n\nconsole.log(\"=== FOLLOW-UP ROUTING ===\");\nconsole.log(\"FollowUp value:\", JSON.stringify(followUp));\nconsole.log(\"Should insert?\", followUp !== null && followUp !== undefined);\n\nif (followUp !== null && followUp !== undefined) {\n  // Has follow-up - route to insert\n  console.log(\"✅ Routing to INSERT\");\n  return { json: $json };\n} else {\n  // No follow-up - return empty (don't route to insert)\n  console.log(\"❌ No follow-up, skipping insert\");\n  return [];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        400,
+        400
+      ],
+      "name": "follow up node"
+    },
+    {
+      "parameters": {
+        "jsCode": "return {\n  response: $('Process Data').item.json.response,\n  onboardingData: $('Process Data').item.json.onboardingData,\n  checklist: $('Process Data').item.json.checklist,\n  isComplete: $('Process Data').item.json.isComplete,\n  followUp: $('Process Data').item.json.followUp  // ← ADD THIS LINE\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        208,
+        512
+      ],
+      "name": "JS"
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "follow_up_events",
+          "mode": "list",
+          "cachedResultName": "follow_up_events"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {
+            "follow_up_at": "=$json.follow_up_at",
+            "session_id": "$json.session_id",
+            "reason": "$json.reason",
+            "user_message": "$json.user_message"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "session_id",
+              "displayName": "session_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "user_message",
+              "displayName": "user_message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "reason",
+              "displayName": "reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "follow_up_at",
+              "displayName": "follow_up_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "processed",
+              "displayName": "processed",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        784,
+        400
+      ],
+      "name": "insert rows in DB",
+      "credentials": {
+        "postgres": {
+          "id": "kpc0xbEzS5TnP8WZ",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return {\n  response: $('Process Data').item.json.response,\n  onboardingData: $('Process Data').item.json.onboardingData,\n  checklist: $('Process Data').item.json.checklist,\n  isComplete: $('Process Data').item.json.isComplete\n};\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        992,
+        400
+      ],
+      "name": "convert data"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{\n  {\n    response: $json.response,\n    onboardingData: $json.onboardingData,\n    checklist: $json.checklist,\n    isComplete: $json.isComplete\n  }\n}}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, OPTIONS"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type, Authorization"
+              }
+            ]
+          }
+        }
+      },
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        864,
+        752
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Prepare Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Data": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Data": {
+      "main": [
+        [
+          {
+            "node": "force single item",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Take Last Item",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase Vector Store": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings OpenAI": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Supabase Vector Store",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres Chat Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "log conversation": {
+      "main": [
+        [
+          {
+            "node": "JS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Take Last Item": {
+      "main": [
+        [
+          {
+            "node": "Process Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "force single item": {
+      "main": [
+        [
+          {
+            "node": "log conversation",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Branded Tracking JS",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Product Feed JS",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Test Sale JS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Branded Tracking Teams": {
+      "main": [
+        []
+      ]
+    },
+    "Product Feed JS": {
+      "main": [
+        [
+          {
+            "node": "Product Feed Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Branded Tracking JS": {
+      "main": [
+        [
+          {
+            "node": "Branded Tracking Teams",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Test Sale JS": {
+      "main": [
+        [
+          {
+            "node": "Test Sale Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "follow up node": {
+      "main": [
+        [
+          {
+            "node": "prepare data for db",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "JS": {
+      "main": [
+        [
+          {
+            "node": "follow up node",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "prepare data for db": {
+      "main": [
+        [
+          {
+            "node": "insert rows in DB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "insert rows in DB": {
+      "main": [
+        [
+          {
+            "node": "convert data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "convert data": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {},
+  "tags": [],
+  "active": false
+}

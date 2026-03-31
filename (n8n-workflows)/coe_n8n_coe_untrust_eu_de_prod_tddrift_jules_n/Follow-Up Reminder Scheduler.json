@@ -1,0 +1,201 @@
+{
+  "id": "4PagoBmYkxmgObpr",
+  "name": "Follow-Up Reminder Scheduler",
+  "nodes": [
+    {
+      "parameters": {
+        "triggerTimes": {
+          "item": [
+            {
+              "mode": "everyX",
+              "value": 15,
+              "unit": "minutes"
+            }
+          ]
+        }
+      },
+      "name": "Cron Trigger",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [
+        32,
+        -240
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM follow_up_events\nWHERE processed = false\nAND follow_up_at <= NOW();",
+        "options": {}
+      },
+      "name": "Select Due Follow-Ups",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [
+        272,
+        -240
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "kpc0xbEzS5TnP8WZ",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{$json.length}}",
+              "operator": {
+                "type": "number",
+                "operation": "greater"
+              },
+              "rightValue": "0"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "If Any Rows?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        496,
+        -240
+      ]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "name": "Split in Batches",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 1,
+      "position": [
+        720,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "requestMethod": "POST",
+        "url": "https://coe-n8n.common-eu-de.services.tddrift.net/webhook/onboarding-chat",
+        "jsonParameters": true,
+        "options": {},
+        "bodyParametersJson": "={\n  \"event\": \"follow_up_reminder\",\n  \"session_id\": \"={{ $json.session_id }}\",\n  \"message\": \"Hi! Just checking back — are you ready to continue onboarding?\",\n  \"original_user_message\": \"={{ $json.user_message }}\"\n}\n"
+      },
+      "name": "Send Reminder",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 2,
+      "position": [
+        960,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE follow_up_events\nSET processed = true\nWHERE id = {{$json.id}};",
+        "options": {}
+      },
+      "name": "Mark Processed",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "kpc0xbEzS5TnP8WZ",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "name": "Loop Back",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1440,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Cron Trigger": {
+      "main": [
+        [
+          {
+            "node": "Select Due Follow-Ups",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Select Due Follow-Ups": {
+      "main": [
+        [
+          {
+            "node": "If Any Rows?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Any Rows?": {
+      "main": [
+        [
+          {
+            "node": "Split in Batches",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Split in Batches": {
+      "main": [
+        [
+          {
+            "node": "Send Reminder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Reminder": {
+      "main": [
+        [
+          {
+            "node": "Mark Processed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Processed": {
+      "main": [
+        [
+          {
+            "node": "Split in Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {},
+  "tags": [],
+  "active": false
+}

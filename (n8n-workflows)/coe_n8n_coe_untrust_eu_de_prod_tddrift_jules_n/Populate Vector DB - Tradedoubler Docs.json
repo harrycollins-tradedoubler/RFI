@@ -1,0 +1,131 @@
+{
+  "id": "algbo4PdZb4OZsmf",
+  "name": "Populate Vector DB - Tradedoubler Docs",
+  "nodes": [
+    {
+      "parameters": {},
+      "name": "When clicking 'Test workflow'",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -320,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ---------------------------\n// 1. RAG DOCUMENTS\n// ---------------------------\n\nconst documents = [\n\n  // -------------------------\n  // EXISTING TRACKING DOCS\n  // -------------------------\n  {\n    pageContent: \"BRANDED TRACKING COMPREHENSIVE GUIDE\\n\\nWhat is Branded Tracking?\\nBranded tracking uses the client's own domain (e.g., visit.example.com) instead of Tradedoubler's generic tracking domains. This creates first-party tracking that browsers trust and don't block.\\n\\nKey Benefits:\\n- 73% improvement in tracking accuracy with Safari ITP\\n- 16% better tracking than Google Analytics in Safari\\n- 11% increase in conversion rates\\n- Significantly less likely to be blocked by ad blockers\\n- Better SEO and brand consistency\\n- Full compliance with privacy regulations\\n\\nHow It Works:\\nTwo subdomains are created:\\n1. visit.[yourdomain] - for click tracking/redirects\\n2. statics.[yourdomain] - for serving tracking scripts\\n\\nBoth are CNAMEd to Tradedoubler's infrastructure via DNS records.\\n\\nDNS Setup Process:\\n1. Client provides their root domain\\n2. Tradedoubler tech team configures the tracking infrastructure\\n3. Client receives DNS values to implement:\\n   - visit.domain → CNAME to imp.tradedoubler.com\\n   - statics.domain → CNAME to statics.tradedoubler.com\\n4. DNS propagation takes 24-48 hours\\n5. Once live, tracking scripts use the branded domains\\n\\nIs It Optional?\\nNo, branded tracking is now the standard implementation for all new programs. It's essential for tracking accuracy in modern browsers.\",\n    metadata: {\n      source: \"branded-tracking-guide\",\n      category: \"setup\",\n      topic: \"branded-tracking\"\n    }\n  },\n\n  {\n    pageContent: \"TRACKING IMPLEMENTATION TECHNICAL GUIDE\\n\\nTracking Library Overview:\\nThe Tradedoubler tracking library (trsdk) must be implemented on ALL pages of your website, not just confirmation pages. It doesn't track anything until explicitly told to fire a conversion event.\\n\\nTwo Required Scripts:\\n\\n1. LANDING PAGE SCRIPT (All Pages):\\n- Sets the first-party TDUID cookie\\n- Captures click parameters from affiliate links\\n- Stores session data\\n- Must be present for any tracking to work\\n\\n2. CONFIRMATION PAGE SCRIPT (Thank You Page Only):\\n- Fires the actual conversion event\\n- Sends transaction details (order ID, value, currency)\\n- Credits the publisher who referred the sale\\n\\nBest Practices:\\n- Place scripts directly in HTML rather than GTM\\n- Landing script loads first\\n- Always test with TD test links before going live\\n\\nRequired Data Layer Parameters:\\n- orderID\\n- orderValue (numeric)\\n- currency (ISO)\\n- voucher (optional)\\n- products (optional)\",\n    metadata: {\n      source: \"tracking-implementation\",\n      category: \"technical\",\n      topic: \"implementation\"\n    }\n  },\n\n  {\n    pageContent: \"GOOGLE TAG MANAGER IMPLEMENTATION GUIDE\\n\\nLanding Page Tag:\\n- Custom HTML\\n- Trigger: All Pages\\n- Must fire before other tags\\n\\nConfirmation Page Tag:\\n- Custom HTML\\n- Trigger: Thank-you page\\n- Requires orderID not empty\\n\\nGTM Data Layer Variables:\\n- orderID\\n- orderValue\\n- currency\\n- voucher\\n\\nTesting Steps:\\n- Use Preview Mode\\n- Click Tradedoubler test link\\n- Complete test purchase\\n- Verify both tags fired\\n- Check confirmation tag received correct values\",\n    metadata: {\n      source: \"gtm-guide\",\n      category: \"technical\",\n      topic: \"gtm\"\n    }\n  },\n\n  {\n    pageContent: \"CONSENT MANAGEMENT & GDPR COMPLIANCE\\n\\ntdconv('tracking-consent', true/false)\\n\\nConsent = TRUE:\\n- Full tracking enabled\\n- TDUID cookie created\\n\\nConsent = FALSE:\\n- No cookie stored\\n- No user tracking\\n\\nRecommended CMP Flow:\\n1. Load landing script under Strictly Necessary\\n2. Set tdconv('tracking-consent', false)\\n3. On accept → tdconv('tracking-consent', true)\\n4. On reject → remain false\\n\\nSupports OneTrust, Cookiebot, Usercentrics.\",\n    metadata: {\n      source: \"consent-management\",\n      category: \"compliance\",\n      topic: \"gdpr-consent\"\n    }\n  },\n\n  // -------------------------\n  // TROUBLESHOOTING\n  // -------------------------\n  {\n    pageContent: \"TESTING & TROUBLESHOOTING GUIDE\\n\\nChecklist:\\n- Clear cookies/cache\\n- Disable ad blockers\\n\\nSession Test:\\n- Click TD test link\\n- Purchase immediately\\n\\nCookie Test:\\n- Click TD link\\n- Close browser\\n- Return later and purchase\\n\\nIf tracking fails:\\n- Check cookie set\\n- Check scripts present\\n- Check network requests\\n- Check values numeric\\n\\nBrowser Notes:\\n- Safari requires branded tracking\\n- Test across devices\",\n    metadata: {\n      source: \"testing-guide\",\n      category: \"technical\",\n      topic: \"testing-troubleshooting\"\n    }\n  },\n\n  // -------------------------\n  // FIRST-PARTY TRACKING\n  // -------------------------\n  {\n    pageContent: \"FIRST-PARTY TRACKING & COOKIES DEEP DIVE\\n\\nWhy it matters:\\n- Safari ITP blocks 3rd-party cookies\\n- First-party cookies last full 365 days\\n\\nFlow:\\n1. User clicks affiliate link → visit.domain\\n2. TDUID cookie is set first-party\\n3. user lands on advertiser site\\n4. Conversion reads TDUID\\n\\nAdvantages:\\n- Better accuracy\\n- Works in ITP browsers\\n- Fully compliant\",\n    metadata: {\n      source: \"first-party-tracking\",\n      category: \"technical\",\n      topic: \"cookies-tracking\"\n    }\n  },\n\n  // -------------------------\n  // PRODUCT FEED DOCS\n  // -------------------------\n  {\n    pageContent: \"MANDATORY PRODUCT FIELDS (XML & CSV)\\n\\nRequired:\\n- productFeed version=\\\"2.0\\\"\\n- product id (max 50 chars)\\n- name\\n- description (max 2990)\\n- price (numeric)\\n- productURL\\n- imageURL\\n- category\\n\\nMissing any mandatory field → product dropped.\",\n    metadata: {\n      source: \"product-feed-formats-pdf\",\n      category: \"product-feed\",\n      topic: \"mandatory-fields\"\n    }\n  },\n\n  {\n    pageContent: \"OPTIONAL PRODUCT FIELDS\\n\\nOptional:\\n- availability\\n- brand\\n- condition\\n- deliveryTime\\n- ean / upc / isbn\\n- inStock\\n- previousPrice\\n- promoText\\n- shortDescription\\n- shippingCost\\n- sku\\n- size / weight\\n- techSpecs\\n- tdCategoryId\\n- <field name/value> pairs\",\n    metadata: {\n      source: \"product-feed-formats-pdf\",\n      category: \"product-feed\",\n      topic: \"optional-fields\"\n    }\n  },\n\n  {\n    pageContent: \"FILE SIZE LIMITS & FEED IMPORT\\n\\nRecommended:\\n- ≤100MB\\n- ≤100k products\\n\\nAbsolute Max:\\n- 256MB uncompressed\\n\\nImport Frequency:\\n- Every ~24 hours\\n\\nFeed Requirements:\\n- Single URL\\n- Credentials included if needed\\n\\nProduct ID rules:\\n- Must remain consistent.\",\n    metadata: {\n      source: \"product-feed-formats-pdf\",\n      category: \"operations\",\n      topic: \"file-size-import\"\n    }\n  },\n\n  {\n    pageContent: \"XML V2 RULES\\n\\n- XML is case-sensitive\\n- Must include XML prologue\\n- Allowed entities: &amp; &lt; &gt; &apos; &quot;\\n- No HTML entities allowed\\n- CDATA cannot be used inside attributes\\n- Encoding mismatches cause strange characters\",\n    metadata: {\n      source: \"product-feed-formats-pdf\",\n      category: \"formatting\",\n      topic: \"xml-rules\"\n    }\n  },\n\n  {\n    pageContent: \"CSV RULES\\n\\nAllowed separators: ; , |\\nOne product per line.\\nUse text qualifiers when separator appears in text.\\nCSV does not decode HTML entities.\\nHeaders require 'Ignore First Line' enabled.\",\n    metadata: {\n      source: \"product-feed-formats-pdf\",\n      category: \"formatting\",\n      topic: \"csv-rules\"\n    }\n  },\n\n  // -------------------------\n  // CONFIRMATION SCRIPT PACK (ALL REQUESTED CHUNKS)\n  // -------------------------\n\n  {\n    pageContent: \"CONFIRMATION PAGE SCRIPT — FULL EXAMPLE & EXPLANATION\\n\\nThis script must run on the thank-you page after a purchase.\\n\\n<script>\\nvar TDConversion = {\\n  transactionId: '[ORDER_NUMBER]',\\n  ordervalue: '[ORDER_VALUE]',\\n  currency: '[CURRENCY]',\\n  event: EventID,\\n  voucher: '[VOUCHER]',\\n  cdt: { extId: '[EXITID]', extType: 1 },\\n  validOn: '[VALID_ON]',\\n  products: '[PRODUCT_DATA]'\\n};\\ntdconv('track', 'sale', TDConversion);\\ntdfallback('https://a.imgstatic.eu/trsdk');\\n</script>\\n\\nRequired:\\n- transactionId unique\\n- ordervalue numeric\\n- currency ISO code\\n- event ID from TD\\n\\nOptional:\\n- voucher\\n- products\\n- extId/extType\\n- validOn\",\n    metadata: {\n      source: \"confirmation-script-guide\",\n      category: \"technical\",\n      topic: \"confirmation-script\"\n    }\n  },\n\n  {\n    pageContent: \"CONFIRMATION SCRIPT FIELD DEFINITIONS\\n\\ntransactionId:\\n- Unique order number.\\n\\nordervalue:\\n- Numeric only.\\n\\ncurrency:\\n- Must be ISO code.\\n\\nevent:\\n- TD Event ID.\\n\\nvoucher:\\n- Discount code.\\n\\ncdt.extId:\\n- External ID.\\n\\nvalidOn:\\n- For delayed validation.\\n\\nproducts:\\n- JSON array of purchased items.\",\n    metadata: {\n      source: \"confirmation-script-guide\",\n      category: \"technical\",\n      topic: \"field-definitions\"\n    }\n  },\n\n  {\n    pageContent: \"PRODUCT DATA FORMATTING\\n\\nproducts: [\\n  { id: 'SKU001', name: 'Blue T-shirt', price: 19.99, quantity: 2 },\\n  { id: 'SKU002', name: 'Jeans', price: 49.99, quantity: 1 }\\n]\\n\\nRules:\\n- Must be valid JSON\\n- Prices numeric\\n- IDs should match product feed\\n- Quantity recommended\",\n    metadata: {\n      source: \"confirmation-script-guide\",\n      category: \"technical\",\n      topic: \"product-data\"\n    }\n  },\n  {\n  pageContent: \"IMPORTANT NOTE ABOUT GTM PREVIEW MODE FOR TRADEDOUBLER TESTING\\n\\nGoogle Tag Manager Preview Mode is useful for checking:\\n- The confirmation tag fires\\n- The landing page tag fires\\n- DataLayer variables populate correctly\\n\\nBUT it cannot be used to perform a real Tradedoubler tracking test.\\n\\nWHY PREVIEW MODE DOES NOT WORK FOR TD TESTING:\\n- Tradedoubler test click links do NOT route through GTM Preview Mode.\\n- The preview container URL wrapper interferes with the redirect.\\n- The tracking pixel request will NOT reach Tradedoubler servers.\\n\\nCORRECT TESTING PROCEDURE:\\n1. Exit GTM Preview Mode completely.\\n2. Click the official Tradedoubler test link provided.\\n3. Complete a real test transaction on the live thank you page.\\n4. Check that the conversion appears in Tradedoubler systems (10–45 mins).\\n\\nUSAGE GUIDELINES:\\n- Use GTM Preview Mode ONLY to verify tag firing sequencing.\\n- Use REAL TEST LINKS for actual tracking validation.\\n\",\n  metadata: {\n    source: \"gtm-testing-guidelines\",\n    category: \"technical\",\n    topic: \"gtm-testing\"\n  }\n},\n\n  {\n    pageContent: \"DATA LAYER → CONFIRMATION SCRIPT MAPPING\\n\\nExample dataLayer:\\nwindow.dataLayer.push({\\n  orderID: '12345',\\n  orderValue: 89.99,\\n  currency: 'GBP',\\n  voucher: 'SUMMER20',\\n  products: [...]\\n});\\n\\nMapping:\\ntransactionId: dataLayer.orderID\\nordervalue: dataLayer.orderValue\\ncurrency: dataLayer.currency\\nvoucher: dataLayer.voucher\\nproducts: dataLayer.products\",\n    metadata: {\n      source: \"confirmation-script-guide\",\n      category: \"technical\",\n      topic: \"data-layer-mapping\"\n    }\n  },\n\n  {\n    pageContent: \"GTM CONFIRMATION SCRIPT IMPLEMENTATION\\n\\nCustom HTML Tag:\\n<script>\\nvar dl = window.dataLayer[0] || {};\\nvar TDConversion = {\\n  transactionId: dl.orderID,\\n  ordervalue: dl.orderValue,\\n  currency: dl.currency,\\n  voucher: dl.voucher,\\n  products: dl.products\\n};\\ntdconv('track', 'sale', TDConversion);\\ntdfallback('https://a.imgstatic.eu/trsdk');\\n</script>\\n\\nBest Practices:\\n- Fire after dataLayer push\\n- Avoid duplicate triggers\\n- Use Preview Mode\",\n    metadata: {\n      source: \"confirmation-script-guide\",\n      category: \"technical\",\n      topic: \"gtm-confirmation-script\"\n    }\n  },\n\n  {\n    pageContent: \"CONFIRMATION SCRIPT TROUBLESHOOTING GUIDE\\n\\nCommon Issues:\\n- Script not firing\\n- Undefined dataLayer values\\n- Wrong currency format\\n- No TDUID cookie\\n- Duplicate conversions\\n- DNS not propagated for branded domains\\n\\nDiagnostic Steps:\\n- Check Network tab\\n- console.log(TDConversion)\\n- Validate event ID\\n- Confirm values numeric\",\n    metadata: {\n      source: \"confirmation-script-guide\",\n      category: \"technical\",\n      topic: \"troubleshooting-confirmation-script\"\n    }\n  }\n\n];\n\nreturn documents.map(doc => ({ json: doc }));\n"
+      },
+      "name": "Load Knowledge Base",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -96,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "insert",
+        "tableName": {
+          "__rl": true,
+          "value": "documents",
+          "mode": "list"
+        },
+        "options": {}
+      },
+      "name": "Supabase Vector Store",
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreSupabase",
+      "typeVersion": 1.3,
+      "position": [
+        128,
+        80
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "b5IZZso0TIYWpJI3",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "name": "Embeddings OpenAI",
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        128,
+        256
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "L4g2aVcKF4eab59w",
+          "name": "OpenAi account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "name": "Default Data Loader",
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "typeVersion": 1.1,
+      "position": [
+        320,
+        272
+      ]
+    }
+  ],
+  "connections": {
+    "When clicking 'Test workflow'": {
+      "main": [
+        [
+          {
+            "node": "Load Knowledge Base",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Knowledge Base": {
+      "main": [
+        [
+          {
+            "node": "Supabase Vector Store",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings OpenAI": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Supabase Vector Store",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Default Data Loader": {
+      "ai_document": [
+        [
+          {
+            "node": "Supabase Vector Store",
+            "type": "ai_document",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {},
+  "tags": [],
+  "active": false
+}

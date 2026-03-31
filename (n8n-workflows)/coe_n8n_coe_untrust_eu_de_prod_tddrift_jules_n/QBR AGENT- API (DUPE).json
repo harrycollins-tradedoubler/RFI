@@ -1,0 +1,1223 @@
+{
+  "id": "4KfurlvW7cDA7mwR",
+  "name": "QBR AGENT- API (DUPE)",
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "// Process YoY Data (API version) - outputs a YoY table pack\n\nfunction safeNum(x) {\n  const n = Number(x);\n  return Number.isFinite(n) ? n : 0;\n}\n\nfunction pct(a, b) {\n  if (!b) return null;\n  return (a / b) * 100;\n}\n\nfunction getCurrencySymbol(code) {\n  switch (String(code || '').toUpperCase()) {\n    case 'GBP': return '£';\n    case 'EUR': return '€';\n    case 'USD': return '$';\n    default: return '';\n  }\n}\n\nfunction fmtInt(x) {\n  return Math.round(x).toLocaleString();\n}\nfunction fmtMoney0(x, sym) {\n  return `${sym}${Math.round(x).toLocaleString()}`;\n}\nfunction fmtMoney2(x, sym) {\n  return `${sym}${Number(x).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;\n}\nfunction fmtPct2(x) {\n  if (x === null || x === undefined || Number.isNaN(x)) return \"\";\n  return `${Number(x).toFixed(2)}%`;\n}\nfunction fmtVar1(x) {\n  if (x === null || x === undefined || Number.isNaN(x)) return \"\";\n  const v = Number(x);\n  return `${v >= 0 ? \"+\" : \"\"}${v.toFixed(1)}%`;\n}\n\nfunction aggregate(items) {\n  return items.reduce((acc, item) => {\n    const commission = item.commission || item.salesCommission || {};\n    acc.clicks += safeNum(item.clicks);\n    acc.sales += safeNum(item.sales);\n    acc.orderValue += safeNum(item.orderValue ?? item.salesOrderValue);\n    acc.pubCommission += safeNum(commission.publisherCommission);\n    acc.totalCommission += safeNum(commission.totalCommission);\n    return acc;\n  }, { clicks: 0, sales: 0, orderValue: 0, pubCommission: 0, totalCommission: 0 });\n}\n\nfunction calc(agg) {\n  const clicks = agg.clicks;\n  const sales = agg.sales;\n  const orderValue = agg.orderValue;\n  const aov = sales ? (orderValue / sales) : 0;\n\n  const pubCommission = agg.pubCommission;\n  const totalCommission = agg.totalCommission;\n\n  const convRate = clicks ? pct(sales, clicks) : 0;\n  const cpa = sales ? (totalCommission / sales) : 0;\n  const roi = totalCommission ? (orderValue / totalCommission) : 0;\n\n  return {\n    clicks, sales, convRate, orderValue, aov,\n    pubCommission, totalCommission,\n    cpa, roi\n  };\n}\n\n// Read paginated API responses\nconst currentItems = $node[\"Collect Page (API 2025)1\"].json.allItems || [];\nconst previousItems = $node[\"Collect Page (API 2024)1\"].json.allItems || [];\n\n// Currency symbol from available data\nconst currencySymbol = getCurrencySymbol(\n  currentItems[0]?.reportCurrencyCode ||\n  previousItems[0]?.reportCurrencyCode ||\n  \"GBP\"\n);\n\n// Aggregate\nconst curAgg = aggregate(currentItems);\nconst prevAgg = aggregate(previousItems);\n\n// Calculate KPIs\nconst cur = calc(curAgg);\nconst prev = calc(prevAgg);\n\nfunction diff(a, b) { return a - b; }\nfunction varPct(a, b) { return b ? ((a - b) / b * 100) : null; }\n\nconst rows = [\n  {\n    Row: \"Recent\",\n    Clicks: fmtInt(cur.clicks),\n    Sales: fmtInt(cur.sales),\n    \"Conv Rate\": fmtPct2(cur.convRate),\n    \"Order value\": fmtMoney0(cur.orderValue, currencySymbol),\n    \"AOV\": fmtMoney2(cur.aov, currencySymbol),\n    \"Publ Commission\": fmtMoney0(cur.pubCommission, currencySymbol),\n    \"Total Commission\": fmtMoney0(cur.totalCommission, currencySymbol),\n    \"CPA\": fmtMoney2(cur.cpa, currencySymbol),\n    \"ROI\": cur.roi ? cur.roi.toFixed(2) : \"\"\n  },\n  {\n    Row: \"Previous\",\n    Clicks: fmtInt(prev.clicks),\n    Sales: fmtInt(prev.sales),\n    \"Conv Rate\": fmtPct2(prev.convRate),\n    \"Order value\": fmtMoney0(prev.orderValue, currencySymbol),\n    \"AOV\": fmtMoney2(prev.aov, currencySymbol),\n    \"Publ Commission\": fmtMoney0(prev.pubCommission, currencySymbol),\n    \"Total Commission\": fmtMoney0(prev.totalCommission, currencySymbol),\n    \"CPA\": fmtMoney2(prev.cpa, currencySymbol),\n    \"ROI\": prev.roi ? prev.roi.toFixed(2) : \"\"\n  },\n  {\n    Row: \"Difference\",\n    Clicks: (diff(cur.clicks, prev.clicks) >= 0 ? \"+\" : \"\") + fmtInt(diff(cur.clicks, prev.clicks)),\n    Sales: (diff(cur.sales, prev.sales) >= 0 ? \"+\" : \"\") + fmtInt(diff(cur.sales, prev.sales)),\n    \"Conv Rate\": fmtPct2(diff(cur.convRate, prev.convRate)),\n    \"Order value\": (diff(cur.orderValue, prev.orderValue) >= 0 ? \"+\" : \"\") + fmtMoney0(diff(cur.orderValue, prev.orderValue), currencySymbol),\n    \"AOV\": fmtMoney2(diff(cur.aov, prev.aov), currencySymbol),\n    \"Publ Commission\": (diff(cur.pubCommission, prev.pubCommission) >= 0 ? \"+\" : \"\") + fmtMoney0(diff(cur.pubCommission, prev.pubCommission), currencySymbol),\n    \"Total Commission\": (diff(cur.totalCommission, prev.totalCommission) >= 0 ? \"+\" : \"\") + fmtMoney0(diff(cur.totalCommission, prev.totalCommission), currencySymbol),\n    \"CPA\": fmtMoney2(diff(cur.cpa, prev.cpa), currencySymbol),\n    \"ROI\": diff(cur.roi, prev.roi).toFixed(2)\n  },\n  {\n    Row: \"% Variance\",\n    Clicks: fmtVar1(varPct(cur.clicks, prev.clicks)),\n    Sales: fmtVar1(varPct(cur.sales, prev.sales)),\n    \"Conv Rate\": fmtVar1(varPct(cur.convRate, prev.convRate)),\n    \"Order value\": fmtVar1(varPct(cur.orderValue, prev.orderValue)),\n    \"AOV\": fmtVar1(varPct(cur.aov, prev.aov)),\n    \"Publ Commission\": fmtVar1(varPct(cur.pubCommission, prev.pubCommission)),\n    \"Total Commission\": fmtVar1(varPct(cur.totalCommission, prev.totalCommission)),\n    \"CPA\": fmtVar1(varPct(cur.cpa, prev.cpa)),\n    \"ROI\": fmtVar1(varPct(cur.roi, prev.roi))\n  }\n];\n\nconst dataForAI = `Program YoY Summary Table (Recent vs Previous)\\n${JSON.stringify(rows, null, 2)}`;\n\nreturn [{\n  json: {\n    dataForAI,\n    programYoYTable: rows\n  }\n}];\n"
+      },
+      "name": "Process YoY Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1568,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{$json.dataForAI}}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nAs an expert affiliate marketing analyst at Tradedoubler, analyze this year-over-year program performance.\n\nProvide:\n\n**1. EXECUTIVE SUMMARY** (2-3 sentences)\n   • Overall performance trajectory (growth/decline/stable)\n   • Key highlight or primary concern\n\n**2. TOP INSIGHTS** (3-4 bullet points)\n   • Identify biggest movers (positive and negative)\n   • Flag metrics above/below benchmarks\n   • Note efficiency changes\n\n**3. DETAILED ANALYSIS**\n   • Traffic trends\n   • Conversion performance\n   • Revenue economics\n\n**4. RECOMMENDATIONS** (3-5 actionable items)\n   • Prioritize by impact\n   • Be specific and tactical\n   • Focus on optimization opportunities\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n**Industry Benchmarks:**\n• Good CTR: 1.5-3%\n• Good CVR: 2-5%\n• Healthy Take Rate: 10-20%\n• Significant change: >20% YoY\n\nBe concise, data-driven, and actionable.",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are an expert affiliate marketing analyst at Tradedoubler with 10+ years experience. You specialize in year-over-year performance analysis, identifying trends, and providing actionable recommendations. You understand KPIs like CTR, CVR, EPC, take rate, AOV, and can compare them against industry benchmarks. You're direct, insightful, and focused on driving business outcomes."
+        }
+      },
+      "name": "AI Agent: Analyze Performance",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        1984,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process Publisher QBR Pack1 (non-paged + corrected analysis)\nconst MINIMUM_PREVIOUS_OV = 2000;\nconst MIN_SALES_FOR_CPA = 3;\n\n// Helpers\nfunction safeNum(v) {\n  const n = parseFloat(String(v || \"0\").replace(/[^0-9.-]/g, \"\"));\n  return isNaN(n) ? 0 : n;\n}\n\nfunction fmtMoney0(amt) {\n  return new Intl.NumberFormat(\"en-GB\", {\n    style: \"currency\",\n    currency: \"GBP\",\n    minimumFractionDigits: 0,\n    maximumFractionDigits: 0,\n  }).format(amt);\n}\n\nfunction fmtInt(num) {\n  return new Intl.NumberFormat(\"en-GB\").format(Math.round(num));\n}\n\nfunction fmtYoY(v) {\n  if (v === null || v === undefined || !Number.isFinite(v)) return \"N/A\";\n  return `${v >= 0 ? \"+\" : \"\"}${v.toFixed(1)}%`;\n}\n\nfunction aggregateByPublisher(items) {\n  const map = new Map();\n  for (const item of items) {\n    // Keep only Sale rows\n    if (item.eventName !== \"Sale\" && item.eventId !== 422965) continue;\n\n    const publisher = item.publisherName || item.sourceName || \"Unknown\";\n    const ov = safeNum(item.salesOrderValue);\n    const sales = safeNum(item.sales);\n    const commission = safeNum(\n      item.salesCommission?.totalCommission ??\n      item.commission?.totalCommission ??\n      item.commission\n    );\n\n    if (!map.has(publisher)) {\n      map.set(publisher, { publisher, ov: 0, sales: 0, pubCommission: 0 });\n    }\n    const acc = map.get(publisher);\n    acc.ov += ov;\n    acc.sales += sales;\n    acc.pubCommission += commission;\n  }\n  return Array.from(map.values());\n}\n\n// Read items directly from API nodes\nconst currentItems = $node[\"API Publisher Current\"].json.items || [];\nconst previousItems = $node[\"API Publisher Previous\"].json.items || [];\n\nconst currentRows = aggregateByPublisher(currentItems);\nconst previousRows = aggregateByPublisher(previousItems);\n\n// Lookup previous\nconst previousMap = new Map();\nfor (const row of previousRows) {\n  previousMap.set(row.publisher, {\n    prevOV: safeNum(row.ov),\n    prevSales: safeNum(row.sales),\n    prevPubCommission: safeNum(row.pubCommission)\n  });\n}\n\n// Build merged rows\nconst mappedRows = currentRows.map(r => {\n  const prev = previousMap.get(r.publisher) || { prevOV: 0, prevSales: 0, prevPubCommission: 0 };\n  const ovYoYAbsolute = r.ov - prev.prevOV;\n  const ovYoYPercent = prev.prevOV > 0 ? (ovYoYAbsolute / prev.prevOV) * 100 : null;\n  const cpa = r.sales >= MIN_SALES_FOR_CPA ? r.pubCommission / r.sales : null;\n\n  return {\n    publisher: r.publisher,\n    ov: r.ov,\n    prevOV: prev.prevOV,\n    ovYoYAbsolute,\n    ovYoYPercent,\n    sales: r.sales,\n    pubCommission: r.pubCommission,\n    cpa\n  };\n}).filter(r => r.ov > 0 || r.sales > 0);\n\n// Tables\nconst top10Increase = mappedRows\n  .filter(r => r.ovYoYAbsolute > 0)\n  .sort((a, b) => b.ovYoYAbsolute - a.ovYoYAbsolute)\n  .slice(0, 10)\n  .map(r => ({\n    Publisher: r.publisher,\n    \"Current OV\": fmtMoney0(r.ov),\n    \"Previous OV\": fmtMoney0(r.prevOV),\n    \"YoY Change £\": fmtMoney0(r.ovYoYAbsolute),\n    \"YoY %\": fmtYoY(r.ovYoYPercent),\n    \"Sales\": fmtInt(r.sales)\n  }));\n\nconst top10Decrease = mappedRows\n  .filter(r => r.ovYoYAbsolute < 0)\n  .sort((a, b) => a.ovYoYAbsolute - b.ovYoYAbsolute)\n  .slice(0, 10)\n  .map(r => ({\n    Publisher: r.publisher,\n    \"Current OV\": fmtMoney0(r.ov),\n    \"Previous OV\": fmtMoney0(r.prevOV),\n    \"YoY Change £\": fmtMoney0(r.ovYoYAbsolute),\n    \"YoY %\": fmtYoY(r.ovYoYPercent),\n    \"Sales\": fmtInt(r.sales)\n  }));\n\nconst top10ByOV = mappedRows\n  .sort((a, b) => b.ov - a.ov)\n  .slice(0, 10)\n  .map(r => ({\n    Publisher: r.publisher,\n    \"Order Value\": fmtMoney0(r.ov),\n    \"Sales\": fmtInt(r.sales),\n    \"Pub Commission\": fmtMoney0(r.pubCommission),\n    \"CPA\": r.cpa ? fmtMoney0(r.cpa) : \"N/A\",\n    \"YoY %\": fmtYoY(r.ovYoYPercent)\n  }));\n\nfunction inferSegment(nameRaw) {\n  const name = String(nameRaw || \"\").toLowerCase();\n  if (/(css|google shopping|comparison|compare|idealo|shoparize|genie shopping)/.test(name)) return \"CSS\";\n  if (/(which|techradar|trustedreviews|guardian|telegraph|independent|media|content)/.test(name)) return \"Content\";\n  if (/(voucher|coupon|deal|discount|hotukdeals|vouchercodes)/.test(name)) return \"Voucher\";\n  if (/(cashback|quidco|topcashback)/.test(name)) return \"Cashback\";\n  return \"Other\";\n}\n\nconst segmentPerformance = {};\nfor (const r of mappedRows) {\n  const seg = inferSegment(r.publisher);\n  if (!segmentPerformance[seg]) {\n    segmentPerformance[seg] = { ov: 0, ovYoYChange: 0, count: 0 };\n  }\n  segmentPerformance[seg].ov += r.ov;\n  segmentPerformance[seg].ovYoYChange += r.ovYoYAbsolute;\n  segmentPerformance[seg].count += 1;\n}\n\nconst segmentSummary = Object.entries(segmentPerformance)\n  .map(([seg, data]) => ({\n    Segment: seg,\n    \"Total OV\": fmtMoney0(data.ov),\n    \"YoY Change £\": fmtMoney0(data.ovYoYChange),\n    \"YoY %\": data.ov > 0 ? ((data.ovYoYChange / (data.ov - data.ovYoYChange)) * 100).toFixed(1) + \"%\" : \"N/A\",\n    \"Publishers\": data.count\n  }))\n  .sort((a, b) => segmentPerformance[b.Segment].ov - segmentPerformance[a.Segment].ov);\n\nconst dataForAI = {\n  top10Increase,\n  top10Decrease,\n  top10ByOV,\n  segmentSummary,\n  totalPublishers: mappedRows.length,\n  topGrowthSegment: segmentSummary[0]?.Segment || \"N/A\"\n};\n\nreturn [{\n  json: {\n    publisherPerformanceTables: {\n      top10Increase,\n      top10Decrease,\n      top10ByOV,\n      segmentSummary\n    },\n    dataForAI: JSON.stringify(dataForAI, null, 2)\n  }\n}];\n"
+      },
+      "name": "Process Publisher QBR Pack1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1472,
+        544
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{$json.dataForAI}}\n\nYou are preparing a Publisher Performance Analysis for a Tradedoubler QBR.\n\nSTRICT OUTPUT RULES:\n- Use ONLY the provided tables.\n- Do NOT invent or add new tables.\n- Each table must have ≤ 6 columns and ≤ 10 rows.\n- If a table is empty, write \"(no data)\" only.\n- Use clean Markdown tables only. No commentary inside tables.\n\nSTRUCTURE (exact order):\n\n## Publisher Performance Analysis\n\n### 1. Executive Summary\n3 bullets only:\n- Total YoY OV change\n- Main growth driver\n- Main decline driver (or \"No declines this period\")\n\n### 2. Growth Drivers (Established Publishers)\nUse Top Increase table.\nIf empty, state: \"No established publishers showed YoY growth.\"\n\n### 3. Declines (Established Publishers)\nUse Top Decline table.\nIf empty, state: \"No declines recorded in this period.\"\n\n### 4. New & Emerging Publishers\nIf none in the data, say so.\nIf present, summarize in 2 sentences max.\n\n### 5. Current Top Performers\nUse Top by OV table.\n\n### 6. Segment View (High-Level)\nUse Segment Summary table.\n\n### 7. Recommendations (4–5 actions)\nShort bullet points, 1 sentence each.\nNo segment cuts.\n\nDO NOT:\n- Add extra headings\n- Add additional tables\n- Exceed table size limits\n- Use emojis\n\nNow generate the analysis.\n",
+        "options": {
+          "systemMessage": "You are an expert affiliate marketing analyst at Tradedoubler. You write QBR-ready performance analysis by publisher type and provide tactical, realistic actions."
+        }
+      },
+      "name": "AI Agent: Publisher QBR1",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        1776,
+        544
+      ]
+    },
+    {
+      "parameters": {
+        "model": "gpt-4o",
+        "options": {
+          "maxTokens": 3000,
+          "temperature": 0.3
+        }
+      },
+      "name": "OpenAI GPT-1",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1,
+      "position": [
+        3008,
+        1376
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "L4g2aVcKF4eab59w",
+          "name": "OpenAi account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Tag Program Output  (UPDATE to also pass the table)\nreturn [{\n  json: {\n    programOutput: $json.output ?? \"\",\n    programYoYTable: $node[\"Process YoY Data\"].json.programYoYTable ?? []\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2400,
+        240
+      ],
+      "name": "Tag Program Output"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Tag Publisher Output - UPDATED\nreturn [{\n  json: {\n    publisherAnalysis: $json.output ?? \"\",\n    publisherTables: $node[\"Process Publisher QBR Pack1\"].json.publisherPerformanceTables ?? {}\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2144,
+        544
+      ],
+      "name": "Tag Publisher Output"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Keep everything, just normalize incomingText\nconst incomingText =\n  $json?.message?.text ??\n  $json?.chatInput ??\n  $json?.text ??\n  $json?.message ??\n  $json?.body?.message ??\n  $json?.body?.text ??\n  $json?.query?.message ??\n  $json?.incomingText ??\n  \"Generate QBR report\";\n\nreturn [\n  {\n    ...$json,               // keep td_tokens + payload\n    incomingText: String(incomingText),\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        592,
+        832
+      ],
+      "name": "split data"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract Brand Context - Dynamic from QBR payload\n\n// Pull payload from webhook flow\nconst payload =\n  $json.payload ||\n  $json.body?.payload ||\n  (typeof $json.body?.message === 'string'\n    ? JSON.parse($json.body.message.replace(/^QBR_REQUEST\\s*/, ''))\n    : {});\n\n// Dynamic inputs\nconst brandName = payload.brandName || payload.programName || \"Unknown Brand\";\nconst category = payload.programCategory || \"Other / Unclassified\";\nconst market = payload.market || \"UK\";\n\n// Category-based competitor defaults\nconst competitorMap = {\n  \"Retail & Ecommerce\": [\"Amazon\", \"eBay\", \"Argos\", \"Very\", \"The Range\", \"Wilko\", \"B&M\"],\n  \"Travel & Hospitality\": [\"Booking.com\", \"Expedia\", \"Hotels.com\", \"Skyscanner\", \"Trivago\", \"TUI\", \"easyJet Holidays\"],\n  \"Finance & Insurance\": [\"MoneySuperMarket\", \"Comparethemarket\", \"GoCompare\", \"Confused.com\", \"MoneySavingExpert\", \"NerdWallet\", \"uSwitch\"],\n  \"Health & Beauty\": [\"Boots\", \"Lookfantastic\", \"Sephora\", \"Cult Beauty\", \"Superdrug\", \"Feelunique\", \"The Body Shop\"],\n  \"Fashion & Apparel\": [\"ASOS\", \"Zalando\", \"Boohoo\", \"Next\", \"H&M\", \"M&S\", \"River Island\"],\n  \"Home & Garden\": [\"Wayfair\", \"IKEA\", \"Dunelm\", \"B&Q\", \"Homebase\", \"Screwfix\", \"Wickes\"],\n  \"Electronics & Tech\": [\"AO.com\", \"Currys\", \"John Lewis\", \"Argos\", \"Amazon\", \"Samsung\", \"Apple\"],\n  \"Food & Grocery\": [\"Tesco\", \"Sainsbury’s\", \"Ocado\", \"Asda\", \"Morrisons\", \"Waitrose\", \"Aldi\"],\n  \"Education & Training\": [\"Coursera\", \"Udemy\", \"FutureLearn\", \"edX\", \"Skillshare\", \"LinkedIn Learning\", \"Pluralsight\"],\n  \"Subscriptions & Services\": [\"Amazon Prime\", \"Netflix\", \"Spotify\", \"Disney+\", \"Apple Music\", \"YouTube Premium\", \"Sky\"],\n  \"B2B & SaaS\": [\"HubSpot\", \"Salesforce\", \"Zoho\", \"Mailchimp\", \"Shopify\", \"Adobe\", \"Microsoft\"],\n  \"Other / Unclassified\": [\"Competitor A\", \"Competitor B\", \"Competitor C\", \"Competitor D\"]\n};\n\nconst competitors = competitorMap[category] || competitorMap[\"Other / Unclassified\"];\n\nreturn [{\n  json: {\n    brandName,\n    category,\n    market,\n    competitors\n  }\n}];\n"
+      },
+      "name": "Extract Brand Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        784,
+        832
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generate Search Queries - ENHANCED WITH QUESTION FORMAT\nconst brand = $json.brandName;\nconst category = $json.category;\nconst market = $json.market;\nconst competitors = $json.competitors || [];\n\nconst year = new Date().getFullYear();\nconst marketSuffix = market === \"UK\" ? \" UK\" : \"\";\n\nfunction transformToQuestion(queryText, queryType) {\n  if (queryType === \"commercial\") {\n    if (queryText.includes(\"discount\") || queryText.includes(\"voucher\")) {\n      return `Where can I find ${brand} discount codes${marketSuffix}?`;\n    }\n    if (queryText.includes(\"best\")) {\n      return `What are the best ${category} ${year}${marketSuffix}?`;\n    }\n  }\n  \n  if (queryType === \"comparison\") {\n    return `Which is better: ${brand} or ${competitors[0]}${marketSuffix}?`;\n  }\n  \n  if (queryType === \"informational\") {\n    if (queryText.includes(\"reliable\")) {\n      return `Is ${brand} a reliable company${marketSuffix}?`;\n    }\n    if (queryText.includes(\"review\")) {\n      return `What do customers say about ${brand}${marketSuffix}?`;\n    }\n  }\n  \n  if (queryType === \"forum_aeo\") {\n    return `What do Reddit users think about ${brand}${marketSuffix}?`;\n  }\n  \n  return queryText;\n}\n\nconst queries = [\n  // COMMERCIAL\n  { query: `best ${category} ${year}${marketSuffix}`, type: \"commercial\", priority: \"high\" },\n  { query: `${brand} discount code ${market}`, type: \"commercial\", priority: \"high\" },\n  { query: `${brand} voucher code ${market}`, type: \"commercial\", priority: \"high\" },\n  \n  // INFORMATIONAL\n  { query: `is ${brand} reliable${marketSuffix}`, type: \"informational\", priority: \"high\" },\n  { query: `${brand} review ${year}${marketSuffix}`, type: \"informational\", priority: \"medium\" },\n  \n  // COMPARISON\n  { query: `${brand} vs ${competitors[0]}${marketSuffix}`, type: \"comparison\", priority: \"high\" },\n  \n  // FORUM AEO\n  { query: `${brand} reddit${marketSuffix}`, type: \"forum_aeo\", priority: \"high\" },\n  { query: `${brand} worth it reddit`, type: \"forum_aeo\", priority: \"high\" },\n  { query: `should i buy from ${brand} reddit`, type: \"forum_aeo\", priority: \"medium\" }\n];\n\nreturn queries.map(q => ({ \n  json: {\n    ...q,\n    questionFormat: transformToQuestion(q.query, q.type)\n  }\n}));"
+      },
+      "name": "Generate Search Queries",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1008,
+        832
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "name": "Loop Through Queries",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1360,
+        944
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://google.serper.dev/search",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "={{$json.query}}"
+            },
+            {
+              "name": "gl",
+              "value": "uk"
+            },
+            {
+              "name": "hl",
+              "value": "en"
+            },
+            {
+              "name": "num",
+              "value": "10"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Serper API Search",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1584,
+        1056
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "n0BrPzhRCZwJV7T1",
+          "name": "SerpAPI"
+        }
+      },
+      "notes": "Free alternative to SerpAPI - get key from serper.dev"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse SERP Results\nconst serpData = $json;\nconst originalQuery = $node[\"Loop Through Queries\"].json.query;\nconst queryType = $node[\"Loop Through Queries\"].json.type;\n\nconst organicResults = serpData.organic || [];\n\nconst parsed = organicResults.slice(0, 10).map((result, idx) => {\n  const url = result.link || \"\";\n  let domain = \"\";\n  try {\n    domain = new URL(url).hostname.replace('www.', '');\n  } catch (e) {\n    domain = \"unknown\";\n  }\n  \n  // ============================================\n  // 🆕 NEW: Extract publish date if available\n  // ============================================\n  let publishDate = null;\n  if (result.date) {\n    publishDate = result.date;\n  } else if (result.snippet) {\n    // Try to extract date from snippet\n    const dateMatch = result.snippet.match(/(\\d{1,2}\\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\\s+\\d{4})/i);\n    if (dateMatch) publishDate = dateMatch[1];\n  }\n  // ============================================\n  \n  return {\n    query: originalQuery,\n    queryType,\n    position: idx + 1,\n    title: result.title || \"\",\n    url,\n    domain,\n    snippet: result.snippet || \"\",\n    publishDate // 🆕 ADDED THIS LINE\n  };\n});\n\nreturn parsed.map(p => ({ json: p }));\n"
+      },
+      "name": "Parse SERP Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1984,
+        1056
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================\n// GET INPUT DATA\n// ============================================\nconst allResults = $json.allResults || [];\nconst brandName = $node[\"Extract Brand Context\"].json.brandName.toLowerCase();\n\n// ============================================\n// CLASSIFY PUBLISHERS & CALCULATE AEO SCORES\n// ============================================\nconst classified = allResults.map(result => {\n  const domain = result.domain.toLowerCase();\n  const url = result.url.toLowerCase();\n  const title = result.title.toLowerCase();\n  const snippet = result.snippet.toLowerCase();\n  \n  // Initialize classification\n  let publisherType = \"other\";\n  let displayName = result.domain;\n  let aeoScore = 0;\n  let freshness = \"unknown\";\n  let pageAngle = \"\";\n  let forumMetadata = null;\n  \n  // ============================================\n  // PUBLISHER TYPE CLASSIFICATION\n  // ============================================\n  \n  // FORUM / COMMUNITY\n  if (domain.includes('reddit.com')) {\n    publisherType = \"forum_community\";\n    displayName = \"Reddit\";\n    \n    // Extract subreddit\n    const subredditMatch = url.match(/\\/r\\/([a-zA-Z0-9_]+)/);\n    const subreddit = subredditMatch ? subredditMatch[1] : \"unknown\";\n    \n    // Determine thread type\n    let threadType = \"discussion\";\n    if (title.includes('vs') || title.includes('versus') || snippet.includes('compared to')) {\n      threadType = \"comparison_discussion\";\n    } else if (title.includes('should i') || title.includes('worth it') || title.includes('recommend')) {\n      threadType = \"purchase_advice\";\n    } else if (title.includes('review') || title.includes('experience')) {\n      threadType = \"review_experience\";\n    }\n    \n    // Sentiment analysis (basic)\n    let sentimentSignal = \"neutral\";\n    if (snippet.includes('avoid') || snippet.includes('terrible') || snippet.includes('scam')) {\n      sentimentSignal = \"negative\";\n    } else if (snippet.includes('great') || snippet.includes('recommend') || snippet.includes('excellent')) {\n      sentimentSignal = \"positive\";\n    }\n    \n    forumMetadata = { subreddit, threadType, sentimentSignal };\n    \n  } else if (domain.includes('mumsnet.com') || domain.includes('netmums.com')) {\n    publisherType = \"forum_community\";\n    displayName = domain.includes('mumsnet') ? \"Mumsnet\" : \"Netmums\";\n    forumMetadata = { threadType: \"discussion\", sentimentSignal: \"neutral\" };\n    \n  } else if (domain.includes('quora.com')) {\n    publisherType = \"forum_community\";\n    displayName = \"Quora\";\n    forumMetadata = { threadType: \"qa_answer\", sentimentSignal: \"neutral\" };\n    \n  } else if (domain.includes('hotukdeals.com')) {\n    publisherType = \"deal_community\";\n    displayName = \"HotUKDeals\";\n    forumMetadata = { threadType: \"deal_discussion\", sentimentSignal: \"neutral\" };\n  }\n  \n  // VIDEO\n  else if (domain.includes('youtube.com') || domain.includes('youtu.be')) {\n    publisherType = \"video_youtube\";\n    displayName = \"YouTube\";\n  }\n  \n  // VOUCHER / DISCOUNT\n  else if (domain.includes('vouchercode') || domain.includes('myvouchercodes') || \n           domain.includes('hotukdeals') || domain.includes('savethestudent') ||\n           domain.includes('retailmenot') || domain.includes('groupon')) {\n    publisherType = \"voucher_discount\";\n    displayName = domain.replace('.com', '').replace('.co.uk', '');\n  }\n  \n  // REVIEW PLATFORMS\n  else if (domain.includes('trustpilot.com')) {\n    publisherType = \"review_ugc\";\n    displayName = \"Trustpilot\";\n  } else if (domain.includes('reviews.co.uk') || domain.includes('feefo.com')) {\n    publisherType = \"review_ugc\";\n    displayName = domain.includes('feefo') ? \"Feefo\" : \"Reviews.co.uk\";\n  }\n  \n  // EDITORIAL / PUBLISHER\n  else if (domain.includes('which.co.uk')) {\n    publisherType = \"editorial\";\n    displayName = \"Which?\";\n  } else if (domain.includes('techradar.com') || domain.includes('tomsguide.com') || \n             domain.includes('trustedreviews.com') || domain.includes('expertreviews.co.uk')) {\n    publisherType = \"editorial\";\n    displayName = domain.replace('.com', '').replace('.co.uk', '');\n  }\n  \n  // PRICE COMPARISON\n  else if (domain.includes('pricerunner') || domain.includes('kelkoo') || \n           domain.includes('idealo') || domain.includes('pricegrabber')) {\n    publisherType = \"css\";\n    displayName = domain.replace('.com', '').replace('.co.uk', '');\n  }\n  \n  // CASHBACK\n  else if (domain.includes('topcashback') || domain.includes('quidco')) {\n    publisherType = \"cashback\";\n    displayName = domain.includes('topcashback') ? \"TopCashback\" : \"Quidco\";\n  }\n  \n  // BRAND OWNED\n  else if (domain.includes(brandName.replace(/\\s+/g, ''))) {\n    publisherType = \"brand_owned\";\n    displayName = brandName;\n  }\n  \n  // RETAILERS (COMPETITORS)\n  else if (domain.includes('ao.com') || domain.includes('currys') || \n           domain.includes('johnlewis') || domain.includes('argos') ||\n           domain.includes('appliancesdirect')) {\n    publisherType = \"retailer\";\n    displayName = domain.replace('.com', '').replace('.co.uk', '');\n  }\n  \n  // ============================================\n  // AEO SCORE CALCULATION (0-100)\n  // ============================================\n  // Position weight (40 points max)\n  const positionScore = result.position <= 3 ? 40 : \n                        result.position <= 5 ? 30 :\n                        result.position <= 7 ? 20 :\n                        result.position <= 10 ? 10 : 0;\n  \n  // Publisher authority (30 points max)\n  const authorityScore = publisherType === \"forum_community\" ? 30 :\n                         publisherType === \"video_youtube\" ? 25 :\n                         publisherType === \"editorial\" ? 25 :\n                         publisherType === \"review_ugc\" ? 20 :\n                         publisherType === \"brand_owned\" ? 15 : 10;\n  \n  // Content extractability (30 points max)\n  let extractabilityScore = 0;\n  if (title.includes('?') || title.includes('how') || title.includes('what') || title.includes('why')) {\n    extractabilityScore += 15; // Question format\n  }\n  if (title.includes('vs') || title.includes('compared')) {\n    extractabilityScore += 10; // Comparison\n  }\n  if (snippet.length > 100) {\n    extractabilityScore += 5; // Rich snippet\n  }\n  \n  aeoScore = Math.min(100, positionScore + authorityScore + extractabilityScore);\n  \n  // ============================================\n  // FRESHNESS DETECTION\n  // ============================================\n  if (result.publishDate) {\n    const pubDate = new Date(result.publishDate);\n    const now = new Date();\n    const daysDiff = Math.floor((now - pubDate) / (1000 * 60 * 60 * 24));\n    \n    if (daysDiff <= 30) freshness = \"very_fresh\";\n    else if (daysDiff <= 90) freshness = \"fresh\";\n    else if (daysDiff <= 365) freshness = \"moderately_fresh\";\n    else freshness = \"evergreen\";\n  } else if (publisherType === \"voucher_discount\") {\n    freshness = \"very_fresh\"; // Assume current codes\n  } else if (publisherType === \"forum_community\") {\n    freshness = \"evergreen\"; // Forums stay relevant\n  }\n  \n  // ============================================\n  // PAGE ANGLE EXTRACTION\n  // ============================================\n  if (title.includes('discount') || title.includes('code') || title.includes('voucher')) {\n    pageAngle = \"discount_codes\";\n  } else if (title.includes('review')) {\n    pageAngle = \"product_review\";\n  } else if (title.includes('vs') || title.includes('comparison')) {\n    pageAngle = \"comparison\";\n  } else if (title.includes('best')) {\n    pageAngle = \"buying_guide\";\n  } else if (title.includes('how to')) {\n    pageAngle = \"how_to_guide\";\n  }\n  \n  // ============================================\n  // RETURN CLASSIFIED RESULT\n  // ============================================\n  return {\n    ...result,\n    publisherType,\n    displayName,\n    aeoScore,\n    freshness,\n    pageAngle,\n    forumMetadata\n  };\n});\n\n// ============================================\n// YOUR ORIGINAL LOGIC (NOW WORKS!)\n// ============================================\n\n// Count UNIQUE queries (not total results)\nconst uniqueQueries = [...new Set(allResults.map(r => r.query))];\nconst totalQueries = uniqueQueries.length;\n\n// Count how many UNIQUE QUERIES have forum/youtube/brand in top 5\nconst queriesWithForums = uniqueQueries.filter(q => \n  classified.some(r => r.query === q && r.publisherType === \"forum_community\" && r.position <= 5)\n).length;\n\nconst queriesWithYouTube = uniqueQueries.filter(q => \n  classified.some(r => r.query === q && r.publisherType === \"video_youtube\" && r.position <= 5)\n).length;\n\nconst queriesWithBrand = uniqueQueries.filter(q => \n  classified.some(r => r.query === q && r.publisherType === \"brand_owned\" && r.position <= 5)\n).length;\n\n// Calculate average AEO scores\nconst forumResults = classified.filter(r => r.publisherType === \"forum_community\");\nconst youtubeResults = classified.filter(r => r.publisherType === \"video_youtube\");\nconst brandResults = classified.filter(r => r.publisherType === \"brand_owned\");\n\nconst questionCoverage = {\n  totalQueries: totalQueries,\n  totalResults: classified.length,\n  answeredByForums: queriesWithForums,\n  answeredByYouTube: queriesWithYouTube,\n  answeredByBrand: queriesWithBrand,\n  \n  averageAEOScore: {\n    forums: forumResults.length > 0 \n      ? Math.round(forumResults.reduce((sum, r) => sum + r.aeoScore, 0) / forumResults.length)\n      : 0,\n    youtube: youtubeResults.length > 0\n      ? Math.round(youtubeResults.reduce((sum, r) => sum + r.aeoScore, 0) / youtubeResults.length)\n      : 0,\n    brand: brandResults.length > 0\n      ? Math.round(brandResults.reduce((sum, r) => sum + r.aeoScore, 0) / brandResults.length)\n      : 0\n  },\n  \n  // DEBUG: Sample results for verification\n  sampleForumResults: forumResults.slice(0, 5).map(r => ({\n    query: r.query,\n    title: r.title,\n    position: r.position,\n    aeoScore: r.aeoScore,\n    subreddit: r.forumMetadata?.subreddit,\n    threadType: r.forumMetadata?.threadType\n  })),\n  \n  sampleYouTubeResults: youtubeResults.slice(0, 3).map(r => ({\n    query: r.query,\n    title: r.title,\n    position: r.position,\n    aeoScore: r.aeoScore\n  }))\n};\n\nconsole.log(\"=== QUESTION COVERAGE DEBUG ===\");\nconsole.log(JSON.stringify(questionCoverage, null, 2));\n\nreturn [{ json: { opportunities: classified, questionCoverage } }];"
+      },
+      "name": "Classify & Score Opportunities",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2096,
+        896
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are preparing the **Strategic Visibility & Opportunity Analysis** section for a Tradedoubler client QBR.\n\n**Brand:** {{$node[\"Extract Brand Context\"].json.brandName}}\n**Category:** {{$node[\"Extract Brand Context\"].json.category}}\n**Market:** {{$node[\"Extract Brand Context\"].json.market}}\n\n**Search Results Data:**\n```json\n{{JSON.stringify($json.opportunities, null, 2)}}\n```\n\n**Question Coverage Data:**\n```json\n{{JSON.stringify($json.questionCoverage, null, 2)}}\n```\n\n---\n\n## CRITICAL DATA USAGE RULES\n\n**YOU MUST ONLY USE DOMAINS THAT APPEAR IN THE SEARCH RESULTS DATA ABOVE.**\n\nABSOLUTE: Do NOT include a \"Top 10 Visibility Opportunities\" table or section.\nIf you were going to create it, skip it entirely.\n\n\nRules:\n1. Every domain you mention MUST exist in the `opportunities` array\n2. Extract the `domain` field exactly as provided (e.g., \"reddit.com\", \"trustpilot.com\")\n3. Extract the `title` field to create page context (e.g., \"Reddit – discussion about appliance retailers\")\n4. Extract the `pageAngle` field if available to understand content focus\n5. Extract the `displayName` field if available for readable domain names\n6. NEVER invent, assume, or hallucinate domains that aren't in the data\n7. If you don't have enough domains (less than 5), state: \"Limited SERP data available - only [X] domains analyzed\"\n8. Cross-check every domain name before including it in your analysis\n\n**MARKET VALIDATION:**\n- You MUST only use domains that operate in the {{$node[\"Extract Brand Context\"].json.market}} market\n- For UK: Expect domains like which.co.uk, reddit.com/r/AskUK, trustpilot.com, hotukdeals.com\n- For UK: UK retailers are AO.com, Currys, Appliances Direct, John Lewis, Argos\n- NEVER use US domains like Consumer Reports, Williams Sonoma unless they actually appear in the UK SERP data\n\n---\n\n## OUTPUT STRUCTURE\n\nYou must produce these sections in this exact order:\n\n1. Brand snapshot – LLM citation visibility for [Brand] ([Market])\n2. Top cited domains & pages\n3. Evergreen vs fresh content – what LLMs seem to trust\n4. Role of affiliates vs brand.com\n5. Obvious competitors showing up alongside/above [Brand]\n5A. Answer Engine Optimization (AEO) – Why LLMs cite Reddit, Quora & YouTube\n6. Implications and opportunities for affiliates & content (how an affiliate network could help [Brand])\n\n---\n\n## SECTION 1: BRAND SNAPSHOT – LLM CITATION VISIBILITY FOR [BRAND] ([MARKET])\n\nWrite a 2-3 sentence narrative that sets the scene.\n\n**REQUIRED FORMAT - MUST include this exact phrase:**\n\"Across '[typical query pattern]' in the [Market] market (using live search results as an LLM-citation proxy), [Brand] tends to appear [how/where] than via [brand.com] pages directly. In '[specific query types]', [specific platform types] are prominent.\"\n\n**CRITICAL:** The phrase \"(using live search results as an LLM-citation proxy)\" is REQUIRED - do not omit it.\n\n---\n\n## SECTION 2: TOP CITED DOMAINS & PAGES\n\n**STEP 1: Extract ALL domains from the opportunities data**\n\nGo through the `opportunities` array and list every unique domain found. For each:\n- Domain: Extract from `domain` field\n- Display Name: Extract from `displayName` field (if available)\n- Title: Extract from `title` field  \n- Position: Extract from `position` field\n- Publisher Type: Extract from `publisherType` field\n- Freshness: Extract from `freshness` field\n- Page Angle: Extract from `pageAngle` field if available\n- Date: Extract from `publishDate` field if available\n\n**STEP 2: Transform into readable format**\n\nCreate a table with these columns:\n\n| Rank | Domain / page ([Market]-relevant) | Likely content type | Freshness signal |\n|------|-----------------------------------|---------------------|------------------|\n\n**Rank:** Use the position from the data (1-10)\n\n**Domain / page format:**\n- Use `displayName` if available, otherwise transform domain into readable name\n- Combine with page angle from title: [Display Name] – \"[extract key phrase from title or pageAngle]\"\n\n**Likely content type:** Map from publisherType field:\n- \"voucher_discount\" → \"Voucher/coupon publisher\"\n- \"deal_community\" → \"Deal community\"\n- \"review_ugc\" → \"Review / UGC reputation\"  \n- \"editorial\" → \"Editorial + affiliate\"\n- \"forum_community\" → \"Forum / UGC community\"\n- \"video_youtube\" → \"Video content\"\n- \"cashback\" → \"Cashback platform\"\n- \"css\" → \"Price comparison\"\n- \"closed_user_group\" → \"Members-only deals\"\n- \"brand_owned\" → \"Brand direct\"\n- \"retailer\" → \"Retailer (competitor)\"\n\n**Freshness signal - CRITICAL: MUST USE VARIED LANGUAGE**\n\nYou MUST use different freshness language for each entry. Even if multiple entries have similar dates, vary the phrasing.\n\n**For January 2026 voucher codes:**\n- Entry 1: \"Very fresh (January 2026)\"\n- Entry 2: \"Very fresh (current-month codes)\"\n- Entry 3: \"Fresh (ongoing updates)\"\n- Entry 4: \"Very fresh (Jan 2026 update)\"\n\n**For December 2025 editorial:**\n- Entry 5: \"Fresh (published last month)\"\n- Entry 6: \"Fresh-ish (published ~1 month ago)\"\n- Entry 7: \"Fresh (December 2025)\"\n\n**For review platforms:**\n- \"Fresh (recent reviews)\"\n- \"Fresh (continuously updated)\"\n- \"Moderately fresh (recent crawl)\"\n\n**For forums/discussions:**\n- \"Evergreen (ongoing discussions)\"\n- \"Evergreen (2022-2024 discussions)\"\n\n**ABSOLUTE RULE:** No two entries should have identical freshness signal text.\n\n**Show top 8-10 domains by opportunity score from the data.**\n\n**After the table, calculate and present the Findability Score:**\n\n**Calculate score internally (do not show calculation):**\n- SERP Position (40 pts): Avg position 1-3=40, 4-6=30, 7-10=20, 11-15=10, 16-20=5\n- Affiliate Coverage (30 pts): 8+ domains=30, 6-7=25, 4-5=20, 2-3=10, 0-1=0\n- Freshness (15 pts): 70%+=15, 50-69%=12, 30-49%=8, 10-29%=4, <10%=0\n- Commercial Intent (15 pts): 5+ query types=15, 3-4=10, 2=5, 0-1=0\n\n**Present ONLY:**\n\n**Score: [X]/100**\n**Rating:** [Excellent (80-100) | Strong (60-79) | Moderate (40-59) | Limited (20-39) | Weak (0-19)]\n\n**One-sentence summary:**\n\"[Brand] shows [rating] findability with [strength] but [weakness].\"\n\n**DO NOT SHOW calculation methodology or point breakdowns.**\n\n---\n\n## SECTION 3: EVERGREEN VS FRESH CONTENT – WHAT LLMs SEEM TO TRUST\n\n**CRITICAL FORMAT REQUIREMENT:** Use short, punchy statements with reasoning in parentheses. DO NOT write full prose paragraphs.\n\n### Evergreen that keeps ranking (and is easy for LLMs to cite):\n\nLook through the opportunities data for:\n- Domains with `freshness: \"evergreen\"` or old dates (1+ years ago)\n- Forum discussions, comparison posts, established guides\n\n**REQUIRED FORMAT - Short statements with reasons in parentheses:**\n\n\"[Content type from data]\" that get [pattern] (reason/mechanism).\n\"[Brand] vs [Competitor]\" [content type] that [why they persist] (additional context).\n\n**Example (CORRECT):**\n\"'Best electrical appliances' evergreen buying guides on editorial sites (stable URLs, ongoing updates).\n'Marks Electrical vs AO.com' comparison discussions on Reddit and forums (remain useful regardless of specific models).\"\n\n### Very fresh (last ~60–90 days) that dominates when the intent is transactional:\n\nLook through the opportunities data for:\n- Domains with recent dates (2024-2026)\n- Voucher/discount sites with `publisherType: \"voucher_discount\"` or `\"deal_community\"`\n- Review platforms with recent activity\n\n**REQUIRED FORMAT - Short statements with actual domains:**\n\n\"[Publisher types from data] updated [frequency] ([Domain 1], [Domain 2], [Domain 3]), which are [characteristic].\n[Platform type from data] that [pattern] ([actual platforms]), [effect on perception].\"\n\n**Example (CORRECT):**\n\"Coupon/discount code hubs updated monthly/weekly (TechRadar, VoucherCodes, HotUKDeals), which are highly 'citeable' for discount-related queries.\nUGC review pages that continually accumulate new reviews (Trustpilot), shaping 'legit/worth it' narratives.\"\n\n**CRITICAL:** Keep statements concise. Use parentheses for mechanisms/reasons. Maximum 2 sentences per subsection.\n\n---\n\n## SECTION 4: ROLE OF AFFILIATES VS BRAND.COM\n\nAnalyze the actual data patterns and write THREE narrative paragraphs:\n\n### Paragraph 1 - Discount Query Behavior:\n\nLook at queries with \"discount\", \"code\", \"voucher\" in them. What domains appear?\n\n\"For 'discount code [market]' queries, the SERP footprint is [describe pattern based on actual domains], meaning an LLM is more likely to cite [actual publisher types found] than [Brand]'s own promotions page.\"\n\n### Paragraph 2 - Category Discovery:\n\nLook at queries like \"best [category]\" - what types of publishers appear?\n\n\"For 'best [category] [year]' queries, [publisher types from data] dominate discovery; [Brand] is typically mentioned as [how they appear based on snippets] rather than [brand domain] as a retailer destination.\"\n\n### Paragraph 3 - Trust/Legitimacy:\n\nLook at queries about brand reputation - what appears?\n\n\"For trust/legitimacy queries, [specific platforms from data] are the shortcut source (e.g., [actual example from titles]), often outranking brand-owned messaging.\"\n\n**CRITICAL:** Only reference domains and patterns that actually exist in your data.\n\n---\n\n## SECTION 5: OBVIOUS COMPETITORS SHOWING UP ALONGSIDE/ABOVE [BRAND]\n\nExtract competitor mentions from the actual data:\n\nLook through titles and snippets for competitor brand names. Structure your analysis like this:\n\n**In '[query type]' style lists:** [Competitor 1] and [Competitor 2] routinely appear as [positioning].\n\n**In '[Brand] vs …' comparisons:** [Main competitor from data] is a common named comparator (and [explain context]).\n\n**Depending on [what factor]:** other frequent category competitors typically include [list competitors found in data].\n\n**CRITICAL:** Only mention competitors that actually appear in the SERP data. If no competitor mentions exist, state: \"Limited competitor visibility in analyzed queries - focus is primarily on [Brand] direct searches and voucher/review platforms.\"\n\n## SECTION 5A: ANSWER ENGINE OPTIMIZATION (AEO) – WHY LLMs CITE REDDIT, QUORA & YOUTUBE\n\n**This section analyzes how [Brand] appears in content that feeds LLM RAG (Retrieval Augmented Generation) layers - the search results LLMs use to answer questions.**\n\n**CRITICAL FRAMING:**\n- LLM core models are unchangeable by brands\n- RAG layers (search results) are what brands can influence\n- When Reddit/Quora/YouTube rank in positions 1-5, they become the \"knowledge base\" LLMs cite\n- SERP position = AEO performance proxy\n\n**Key Insight:** [Brand] doesn't need to own high-authority domains (hard for startups) - they need to GET MENTIONED on pages that rank highly (democratized visibility).\n\n---\n\n### STEP 1: Extract Forum & Video Data\n\nLook through opportunities array for entries where:\n- `publisherType: \"forum_community\"` (Reddit, Quora, forums)\n- `publisherType: \"video_youtube\"` \n- `position <= 10` (any position in top 10)\n- `aeoScore` (extract all scores to show range)\n\nAlso extract:\n- `forumMetadata.subreddit` (e.g., \"AskUK\", \"UKPersonalFinance\")\n- `forumMetadata.threadType` (e.g., \"purchase_advice\", \"comparison_discussion\")\n- `forumMetadata.sentimentSignal` (e.g., \"positive\", \"neutral\", \"negative\")\n- `query` (to show which questions trigger forum/video results)\n- `title` (actual thread/video titles)\n\n---\n\n### STEP 2: Structure Analysis in 3 Parts\n\n**Part 1: Forum/Video Content as LLM Training Ground**\n\nCalculate from questionCoverage data:\n- Total top-5 positions analyzed: `questionCoverage.totalQuestions`\n- Forum appearances in top 5: `questionCoverage.answeredByForums`\n- YouTube appearances in top 5: `questionCoverage.answeredByYouTube`\n- Brand appearances in top 5: `questionCoverage.answeredByBrand`\n\n**Output format:**\n\n\"Reddit/Quora/YouTube content appears in [answeredByForums + answeredByYouTube] of [calculate: total opportunities with position <= 5] top-5 positions across analyzed questions. Average AEO scores:\n- Forums: [questionCoverage.averageAEOScore.forums]/100\n- YouTube: [questionCoverage.averageAEOScore.youtube]/100\n- Brand content: [questionCoverage.averageAEOScore.brand]/100\n\nThis [calculate gap: forums score - brand score]-point gap indicates LLMs trust community discussions [add YouTube if score > 0: 'and video content'] over promotional content for '[category]' questions. When consumers ask AI assistants '[pick actual query from data where forum ranked top 5]', they receive [forum name with subreddit if available]-sourced answers rather than [Brand]-provided information.\"\n\n**Example:**\n\"Reddit/YouTube content appears in 7 of 12 top-5 positions across analyzed questions. Average AEO scores:\n- Forums: 78/100\n- YouTube: 43/100  \n- Brand content: 35/100\n\nThis 43-point gap indicates LLMs trust community discussions and video content over promotional content for 'appliance purchase' questions. When consumers ask AI assistants 'Is Marks Electrical reliable UK?', they receive Reddit (r/AskUK)-sourced answers rather than Marks Electrical-provided information.\"\n\n---\n\n**Part 2: Why Forums & YouTube Win AEO Rankings**\n\n**CRITICAL: Use actual data from opportunities array with forumMetadata**\n\nFilter opportunities where `aeoScore >= 50` and extract:\n1. Platform name from `displayName`\n2. Subreddit from `forumMetadata.subreddit` (if Reddit)\n3. Thread type from `forumMetadata.threadType`\n4. Sentiment from `forumMetadata.sentimentSignal`\n5. Actual title from `title`\n6. AEO score from `aeoScore`\n\n**Identify 3-4 structural characteristics from these high-scoring results:**\n\nLook for patterns in titles:\n- Direct questions? (starts with \"What\", \"How\", \"Is\", \"Should\")\n- Comparison structures? (contains \"vs\", \"versus\", \"compared to\")\n- Community validation? (upvotes/comments mentioned in snippet)\n- Video demonstrations? (YouTube with \"unboxing\", \"review\", \"experience\")\n- Structured content? (numbered lists, pros/cons)\n\n**Output format:**\n\n\"High-performing forum/video content shares [X] characteristics that LLMs prioritize:\n1. [Characteristic 1 from pattern analysis] - Example: '[actual title from data]' ([Platform with full context], AEO score: [score])\n2. [Characteristic 2] - Example: '[actual title]' ([Platform with full context], AEO score: [score])\n3. [Characteristic 3] - Example: '[actual title]' ([Platform with full context], AEO score: [score])\n[Optional 4th if strong pattern exists]\n\nThese structural elements make content highly extractable. LLMs can pull: [specific types of info based on actual examples - direct answers, comparison data, user validation, video demonstrations, etc.].\"\n\n**Platform context formatting rules:**\n- Reddit: \"Reddit (r/[subreddit]), [threadType] thread, [sentiment if available]\"\n- YouTube: \"YouTube, [infer type from title: 'product review video', 'unboxing video', 'comparison video']\"\n- HotUKDeals: \"HotUKDeals, [threadType] discussion\"\n- Quora: \"Quora, [threadType] answer\"\n\n**Example (CORRECT):**\n\"High-performing forum/video content shares 4 characteristics that LLMs prioritize:\n1. Direct question titles - Example: 'What websites to avoid when buying appliances?' (Reddit r/AskUK, purchase_advice thread, neutral sentiment, AEO score: 60)\n2. Video product demonstrations - Example: 'Marks Electrical delivery and setup experience' (YouTube, product review video, AEO score: 43)\n3. Comparative user experiences - Example: 'Currys Vs Marks Electrical' (HotUKDeals, comparison_discussion thread, AEO score: 55)\n4. Community-validated insights - Example: 'Is Marks Electrical worth it for large appliances?' (Reddit r/UKPersonalFinance, purchase_advice thread, positive sentiment, AEO score: 53)\n\nThese structural elements make content highly extractable. LLMs can pull: direct retailer recommendations ('avoid X, trust Y'), delivery comparison data ('Site A: 2-3 days vs Site B: next-day'), video timestamps of setup processes, and community consensus validated by upvotes.\"\n\n---\n\n**Part 3: The Brand Visibility Gap in RAG Layer**\n\n**Extract gap data from opportunities array:**\n\nFor each query in the data:\n1. Find highest-ranking forum/YouTube result (position + aeoScore)\n2. Find brand result for same query (position + aeoScore)\n3. Calculate position gap and AEO score gap\n4. List queries where gap is largest\n\n**Filter criteria for \"critical gap queries\":**\n- Forum/YouTube in positions 1-5 AND Brand in positions 6-10 (or not ranked)\n- AEO score gap >= 20 points\n\n**Output format:**\n\n\"The RAG-layer visibility gap: Forums/YouTube appear in top 5 for [count critical gap queries] questions where [Brand] ranks in positions [range or 'not ranked']. Critical gap questions:\n- '[Query 1 with largest gap]': [Platform with context] position [X] (AEO: [score]), [Brand] position [Y or 'absent'] (AEO: [score]), gap: [Z] points\n- '[Query 2]': [Platform with context] position [X] (AEO: [score]), [Brand] position [Y or 'absent'] (AEO: [score]), gap: [Z] points\n- '[Query 3]': [Platform with context] position [X] (AEO: [score]), [Brand] position [Y or 'absent'] (AEO: [score]), gap: [Z] points\n[List 3-4 critical gaps]\n\nThis pattern indicates [Brand] lacks organic community advocacy [add if YouTube gaps exist: 'and video presence'] in spaces LLMs trust most - a strategic vulnerability as AEO becomes the primary discovery mechanism. [If YouTube appeared in data: 'YouTube is particularly critical (average AEO score: [score]) as video content dominates LLM citations for [query types where YouTube appears].' If no YouTube: 'YouTube content is notably absent from these queries, representing an untapped opportunity for video demonstrations.']\"\n\n**Example (CORRECT):**\n\"The RAG-layer visibility gap: Reddit/YouTube appear in top 5 for 5 questions where Marks Electrical ranks in positions 7-10 or is absent. Critical gap questions:\n- 'Is Marks Electrical reliable UK': Reddit (r/AskUK, purchase_advice thread) position 1 (AEO: 60), Marks position 9 (AEO: 35), gap: 25 points\n- 'Marks Electrical worth it reddit': Reddit (r/UKPersonalFinance, purchase_advice thread) position 2 (AEO: 53), Marks absent (AEO: 0), gap: 53 points\n- 'Should I buy from Marks Electrical reddit': Reddit (r/AskUK, comparison_discussion) position 3 (AEO: 55), Marks absent (AEO: 0), gap: 55 points\n- 'Marks Electrical review youtube': YouTube (product review video) position 2 (AEO: 43), Marks position 8 (AEO: 30), gap: 13 points\n\nThis pattern indicates Marks Electrical lacks organic community advocacy and video presence in spaces LLMs trust most - a strategic vulnerability as AEO becomes the primary discovery mechanism. YouTube is particularly critical (average AEO score: 43) as video content dominates LLM citations for 'product review' and 'purchase advice' queries, offering visual proof that text-based brand content cannot match.\"\n\n---\n\n**CRITICAL RULES FOR SECTION 5A:**\n\n✅ **DO:**\n- Use questionCoverage data for Part 1 calculations\n- Extract forumMetadata (subreddit, threadType, sentiment) for Reddit examples\n- Infer YouTube content type from titles (\"product review\", \"unboxing\", \"comparison\")\n- Show 3-4 gap queries with full context (platform + metadata + AEO scores)\n- Calculate actual gaps from data (don't invent)\n- Note if YouTube is absent (\"untapped opportunity\")\n\n❌ **DON'T:**\n- Reference queries not in opportunities array\n- Use generic \"Reddit position 1\" - include subreddit and thread context\n- Invent AEO scores or positions\n- Ignore YouTube if it appears in data\n- Show fewer than 3 gap examples\n- Use \"Limited forum/video presence\" statement if forums clearly dominate (only use if truly absent)\n\n**Edge case handling:**\n- **If NO forums in top 5:** \"Forum content appears outside top-5 positions (average position: [calculate]), limiting LLM citation probability. This suggests [Brand] may have stronger direct visibility, but lacks community validation channels that LLMs increasingly prioritize.\"\n- **If NO YouTube anywhere:** \"YouTube content is absent from all analyzed queries, representing a critical gap - video demonstrations dominate 'purchase advice' and 'product review' queries in LLM training data.\"\n- **If Brand AEO = 0:** Verify this is correct. If Brand appears in positions 6-10, score should be at least 10 points. If truly 0, state: \"[Brand] appears outside top-10 positions for these queries, resulting in zero LLM citation probability.\"\n\n---\n\n## SECTION 6: IMPLICATIONS AND OPPORTUNITIES FOR AFFILIATES & CONTENT (HOW AN AFFILIATE NETWORK COULD HELP [BRAND])\n\n**CRITICAL RULES:**\n- Write as flowing PROSE paragraphs, NOT numbered lists\n- Each recommendation MUST be 60-90 words (except Recommendation 8: 90-110 words)\n- Each recommendation MUST name specific domains from the search data\n- Each recommendation MUST include 2-3 tactical examples\n- Each recommendation MUST reference performance data or current state\n- Explain WHY, not just WHAT\n- Only recommend partnerships with domains that ACTUALLY appear in your data\n\n**Write 7-8 recommendations following these templates:**\n\n### Recommendation 1: Prioritise Editorial Commerce Partners\n\nLook at editorial/review domains in your data (publisherType: \"editorial\" or \"review_ugc\")\n\n**REQUIRED LENGTH: 60-90 words**\n\n**Template:**\n\"Prioritise [publisher type] partners (e.g., [Domain 1], [Domain 2], [Domain 3 - all from data]) with structured placements: '[Content module 1]', '[Content module 2]', '[Content module 3]' that deep-link to [specific URL structure]. [Performance context - positions, AI citation]. [Current state observation].\"\n\n### Recommendation 2: Own the Coupon Narrative\n\nLook at voucher/discount domains in your data\n\n**REQUIRED LENGTH: 60-90 words**\n\n**Template:**\n\"Own the [content type] narrative by working with dominant platforms ([Name 1], [Name 2], [Name 3 from data]) to ensure: [specific requirement 1], [specific requirement 2], and [specific requirement 3] aligned to [seasonal moments]. [Performance context]. [Specific current problem].\"\n\n### Recommendation 3: Create Comparison-Friendly Content Assets\n\nLook at comparison queries (\"vs\" queries) and competitor mentions\n\n**REQUIRED LENGTH: 60-90 words**\n\n**Template:**\n\"Create comparison-friendly content assets ([specific example 1], [specific example 2], [specific example 3]) that affiliates can cite and adapt—[explain why comparison content is valuable]. [Competitor presence observation]. [Gap or opportunity].\"\n\n### Recommendation 4: Forum & UGC Engagement\n\nLook at forum/community domains in your data (reddit, mumsnet, forums)\n\n**REQUIRED LENGTH: 60-90 words**\n\n**Template:**\n\"[Action verb] with [community platforms from data] where [describe actual discussion patterns from data]—[explain UGC importance]. [Specific engagement tactics: monitor threads, respond to queries, share stories]. [Current state from snippets].\"\n\n### Recommendation 5: Reputation Support Loop\n\nLook at review platforms in your data\n\n**REQUIRED LENGTH: 60-90 words**\n\n**Template:**\n\"[Action] should proactively address [specific concern 1], [concern 2], and [concern 3] and point to [solution 1], [solution 2], because [explain review platform importance with position data]. [Current rating or state].\"\n\n### Recommendation 6: Format Bets That Match LLM Citation Patterns\n\n**REQUIRED LENGTH: 60-90 words**\n\n**Template:**\n\"Format bets that match LLM citation patterns: [format 1 with example], [format 2 with example], and [format 3 with example] (high extractability for AI assistants). [Note competitor approach or editorial examples from data].\"\n\n### Recommendation 7: Close the Gap Between Product Mention and Store Destination\n\n**REQUIRED LENGTH: 60-90 words**\n\n**Template:**\n\"Close the gap between [current state from data] and [desired state]: when [Brand] [products] are recommended [where from data], ensure [specific improvement 1], [improvement 2], and [improvement 3] so the click path is as 'obvious' as [competitor examples from data]. [Additional context].\"\n\n### Recommendation 8: Build Authentic Community & Video Presence for RAG Influence\n\nLook at Section 5A gap analysis - specific queries where forums/YouTube outperform brand.\n\n**REQUIRED LENGTH: 90-110 words**\n\n**Template:**\n\"Address the RAG-layer visibility gap in [X] critical questions by establishing transparent presence in [specific subreddits from data] and creating YouTube content answering [specific question types]. For Reddit: Use disclosed employee accounts ('I work at [Brand]...') to provide specific data ([examples from forum threads]) in [thread types: purchase advice, comparisons]. For YouTube: Create [X]-minute videos answering '[specific questions from gap analysis]' with on-screen product demonstrations, delivery unboxings, and warranty walkthroughs. Avoid promotional tone - RAG layers reward helpful, detailed responses. Currently, [competitor/forum] has [X] AEO-score advantage ([score] vs [Brand]'s [score]), and YouTube represents [Y]% of high-AEO positions. [Specific sentiment or gap from Part 3].\"\n\n**Example (108 words):**\n\"Address the RAG-layer visibility gap in 4 critical questions ('Is Marks reliable', 'Marks worth it', 'Should I buy from Marks', 'Marks vs AO delivery') by establishing transparent presence in r/AskUK and r/UKPersonalFinance and creating YouTube content answering appliance purchase questions. For Reddit: Use disclosed employee accounts ('I work at Marks Electrical, here's honest delivery data...') to provide specific timeframes (same-day windows, installation booking process) in purchase advice and comparison threads. For YouTube: Create 5-8 minute videos answering 'Is Marks Electrical reliable for [appliance type]?' with on-screen product unboxings, delivery tracking demos, and warranty claim walkthroughs. Avoid promotional tone - RAG layers reward helpful, detailed responses. Currently, Reddit has 33-point AEO-score advantage (78 vs Marks's 45), and YouTube represents 22% of high-AEO positions. AO.com has 12 authentic employee Reddit mentions vs Marks's 0.\"\n\n**CRITICAL:** \n- Each recommendation must be within specified word counts\n- Each must include multiple specific examples (2-3 minimum)\n- Each must reference actual domains from your data\n- Each must include performance context or current state observation\n- Only recommend actions for domains that appear in your data\n\n---\n\n## FORBIDDEN PATTERNS:\n\n- Do NOT include a \"Top 10 Visibility Opportunities\" table (or any visibility-opportunities table).\n\n\n- Showing calculation methodology\n- Using emojis\n- Numbered list format for recommendations\n- Inventing domains not in the data\n- Missing any of the 6 required sections (+ Section 5A)\n- Generic freshness - each entry must be unique\n- Recommendations shorter than required word counts\n- Omitting the \"(using live search results as an LLM-citation proxy)\" phrase\n- Writing full prose paragraphs in \"Evergreen vs Fresh\" section\n- Writing recommendations without multiple tactical examples\n\n---\n\n## VALIDATION CHECKLIST:\n\nBefore outputting, verify:\n\n- Opening includes \"(using live search results as an LLM-citation proxy)\" phrase\n- All sections present (1, 2, 3, 4, 5, 5A, 6)\n- Top Cited table uses displayName field\n- Every domain exists in opportunities array\n- Freshness signals are ALL UNIQUE\n- Score presented WITHOUT calculation methodology\n- \"Evergreen vs Fresh\" uses punchy statements (NOT full prose)\n- Section 5A includes questionCoverage data analysis\n- ALL recommendations meet word count requirements\n- Recommendation 8 specifically addresses AEO/RAG layer strategy\n- No invented/hallucinated domains\n- No emojis\n\n---\n\n**NOW: Generate your Strategic Visibility & Opportunity Analysis following this structure, using ONLY the domains present in the search results data provided above.**",
+        "options": {
+          "systemMessage": "You are a strategic affiliate marketing consultant at Tradedoubler with expertise in SEO, AEO, and publisher recruitment. You create executive-ready QBR content."
+        }
+      },
+      "name": "AI: Generate Visibility Report",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        2368,
+        896
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Tag Visibility Output\nreturn [{\n  json: {\n    visibilityAnalysis: $json.output ?? \"\",\n    opportunityData: $node[\"Classify & Score Opportunities\"].json.opportunities ?? []\n  }\n}];\n"
+      },
+      "name": "Tag Visibility Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2688,
+        896
+      ]
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        2912,
+        496
+      ],
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Aggregate SERP Data - Collect all results from all queries\nconst allResults = $input.all().map(item => item.json);\n\nreturn [{\n  json: {\n    allResults: allResults\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1648,
+        896
+      ],
+      "name": "aggregate serp data"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Validate Market Data - Check for wrong-market domains\nconst allResults = $json.allResults || [];\nconst expectedMarket = $node[\"Extract Brand Context\"].json.market.toLowerCase();\n\n// Define wrong-market patterns\nconst wrongMarketPatterns = {\n  uk: [\n    /consumerreports\\.org/,\n    /\\.com$/,  // Most .com are US (but not all)\n    /hagedorn/,\n    /williams.*sonoma/,\n    /bestbuy/,\n    /target\\.com/,\n    /walmart/\n  ],\n  us: [\n    /\\.co\\.uk$/,\n    /which\\.co\\.uk/,\n    /hotukdeals/,\n    /currys/,\n    /ao\\.com/\n  ]\n};\n\nconst wrongPatterns = wrongMarketPatterns[expectedMarket] || [];\n\n// Flag suspicious domains\nconst validated = allResults.map(r => {\n  const domain = r.domain.toLowerCase();\n  const isWrongMarket = wrongPatterns.some(pattern => pattern.test(domain));\n  \n  return {\n    ...r,\n    marketWarning: isWrongMarket ? `⚠️ ${domain} may be wrong market` : null\n  };\n});\n\nconst wrongMarketCount = validated.filter(r => r.marketWarning).length;\n\nif (wrongMarketCount > 0) {\n  console.log(`⚠️ WARNING: ${wrongMarketCount} domains flagged as wrong market`);\n}\n\nreturn [{ \n  json: { \n    allResults: validated,\n    marketValidation: {\n      totalResults: validated.length,\n      wrongMarketCount,\n      expectedMarket\n    }\n  } \n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1856,
+        896
+      ],
+      "name": "Validate Market Data"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "09c4b38c-24b8-4850-9fc2-0196608bdd25",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -320,
+        1088
+      ],
+      "name": "Webhook",
+      "webhookId": "09c4b38c-24b8-4850-9fc2-0196608bdd25"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw =\n  $json.incomingText ||\n  $json.message ||\n  $json.body?.message ||\n  '';\n\nconst prefix = 'QBR_REQUEST';\nlet payload = {};\n\nif (raw.startsWith(prefix)) {\n  payload = JSON.parse(raw.slice(prefix.length).trim());\n}\n\nreturn [\n  {\n    ...$json,\n    payload,\n    td_tokens: $json.body?.td_tokens || $json.td_tokens, // keep tokens accessible\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -144,
+        1088
+      ],
+      "name": "receive payload"
+    },
+    {
+      "parameters": {
+        "jsCode": "const { fromDate, toDate } = $json.payload;\n\nfunction shiftYear(yyyymmdd, years) {\n  const y = parseInt(yyyymmdd.slice(0, 4), 10) + years;\n  const m = yyyymmdd.slice(4, 6);\n  const d = yyyymmdd.slice(6, 8);\n  return `${y}${m}${d}`;\n}\n\nreturn [{\n  ...$json,\n  prev: {\n    fromDate: shiftYear(fromDate, -1),\n    toDate: shiftYear(toDate, -1),\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        192,
+        528
+      ],
+      "name": "yoy data extraction"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build Final Response - COMPLETE v2.2\n// Handles Program YoY, Publisher Performance, Visibility Analysis\n// Adds dynamic client + pptx/edit URLs\n\n// Get all items from the merge (3 branches + async status + payload)\nconst allItems = $input.all().map(item => item.json);\n\n// Extract data from each branch\nconst programData = allItems.find(item => item.programOutput) || {};\nconst publisherData = allItems.find(item => item.publisherAnalysis) || {};\nconst visibilityData = allItems.find(item => item.visibilityAnalysis) || {};\n\n// Pull the original QBR payload (where programName lives)\nconst payload = allItems.find(item => item.programName || item.clientName) || {};\n\n// Pull async status output (where edit_path / path live)\nconst asyncStatus = allItems.find(item => item.data && item.data.edit_path) || {};\nconst asyncData = asyncStatus.data || {};\n\n// Pick client name dynamically\nconst client =\n  payload.programName ||\n  payload.clientName ||\n  programData.programName ||\n  programData.clientName ||\n  publisherData.programName ||\n  publisherData.clientName ||\n  visibilityData.programName ||\n  visibilityData.clientName ||\n  \"Unknown\";\n\n// Build edit URL + pptx path\nconst baseUrl = $env.PRESENTON_BASE_URL || \"\";\nconst edit_url =\n  asyncData.edit_path ? `${baseUrl}${asyncData.edit_path}` :\n  programData.edit_url || publisherData.edit_url || visibilityData.edit_url || \"\";\nconst pptx_path =\n  asyncData.path ||\n  programData.pptx_path || publisherData.pptx_path || visibilityData.pptx_path || \"\";\n\n// === PROGRAM YOY DATA ===\nconst program = programData.programOutput || \"(No program analysis returned)\";\nconst programYoYTable = programData.programYoYTable || [];\n\n// === PUBLISHER DATA ===\nconst publisherAnalysis = publisherData.publisherAnalysis || \"(No publisher analysis returned)\";\nconst publisherTables = publisherData.publisherTables || {};\n\n// === VISIBILITY DATA ===\nconst visibilityAnalysis = visibilityData.visibilityAnalysis || \"\";\nconst opportunities = visibilityData.opportunityData || [];\n\n// Helper: Markdown tables\nfunction mdTable(rows) {\n  if (!rows || !rows.length) return \"(no data)\";\n  const headers = Object.keys(rows[0]);\n  const sep = headers.map(() => \"---\");\n  return [\n    `| ${headers.join(\" | \")} |`,\n    `| ${sep.join(\" | \")} |`,\n    ...rows.map(r => `| ${headers.map(h => String(r[h] ?? \"\")).join(\" | \")} |`)\n  ].join(\"\\n\");\n}\n\n// Section 1\nconst programTableMd = mdTable(programYoYTable);\nconst section1 = `\n## 1️⃣ Program YoY Analysis\n${program}\n\n### YoY Summary Table\n${programTableMd}\n`;\n\n// Section 2\nconst publisherTablesMd = publisherTables.top10Increase \n  ? `\n### Top 10 YoY Growth (Absolute £ Increase)\n${mdTable(publisherTables.top10Increase || [])}\n\n### Top 10 YoY Decline (Absolute £ Decrease)\n${mdTable(publisherTables.top10Decrease || [])}\n\n### Top 10 Current Performers (By Order Value)\n${mdTable(publisherTables.top10ByOV || [])}\n\n### Segment Overview\n${mdTable(publisherTables.segmentSummary || [])}\n`\n  : \"(No publisher performance data)\";\n\nconst section2 = `\n## 2️⃣ Publisher Performance Analysis\n${publisherAnalysis}\n\n${publisherTablesMd}\n`;\n\n// Section 3\nlet section3 = \"\";\nif (visibilityAnalysis) {\n  const topOpps = opportunities.slice(0, 10);\n  const oppTableMd = topOpps.length \n    ? mdTable(topOpps.map(o => ({\n        Domain: o.domain || \"N/A\",\n        Position: o.position || \"N/A\",\n        Type: o.publisherType || \"N/A\",\n        Score: o.opportunityScore || 0,\n        Action: o.actionType || \"N/A\",\n        \"In Network\": o.inNetwork ? \"✅\" : \"❌\"\n      })))\n    : \"(No opportunities identified)\";\n\n  section3 = `\n## 3️⃣ Strategic Visibility & Opportunity Analysis\n${visibilityAnalysis}\n\n### Top 10 Visibility Opportunities\n${oppTableMd}\n`;\n}\n\n// Final response\nreturn [{\n  json: {\n    client,\n    edit_url,\n    pptx_path,\n    output:\n`# 📊 QUARTERLY BUSINESS REVIEW\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n${section1}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n${section2}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n${section3}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n## 🎯 Executive Summary & Next Steps\n\n### Key Highlights Across All Analyses:\n\n**Program Performance:**\n- ${programYoYTable.length > 0 && programYoYTable[3] ? programYoYTable[3][\"Order value\"] : \"Review order value trends\"}\n\n**Publisher Performance:**\n- ${publisherTables.top10Increase && publisherTables.top10Increase.length > 0 \n    ? `Top growth driver: ${publisherTables.top10Increase[0].Publisher}` \n    : \"Review publisher growth\"}\n\n**Visibility & Opportunities:**\n- ${opportunities.length > 0 \n    ? `${opportunities.filter(o => !o.inNetwork).length} high-value recruitment targets identified` \n    : \"Visibility analysis pending\"}\n\n### Priority Actions:\n1. **Immediate** (Next 30 days): Review top growth/decline drivers from publisher analysis\n2. **Short-term** (Next 60 days): Execute visibility recruitment strategy for high-score domains\n3. **Ongoing**: Monitor conversion rate optimization and CPA trends from program YoY\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n**Report Generated:** ${new Date().toLocaleDateString('en-GB', { \n  day: 'numeric', \n  month: 'long', \n  year: 'numeric' \n})}\n\n*This QBR was auto-generated by Tradedoubler's AI-powered analytics system.*`\n  }\n}];\n"
+      },
+      "name": "Build Final Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3120,
+        512
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { offset: 0, limit: 100, done: false, allItems: [] } }];"
+      },
+      "name": "Init Pagination (API 2025)1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "name": "Loop (API 2025)1",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        192,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://connect.tradedoubler.com/advertiser/report/statistics?limit={{$json.limit}}&offset={{$json.offset}}&fromDate={{$node[\"yoy data extraction\"].json.payload.fromDate}}&toDate={{$node[\"yoy data extraction\"].json.payload.toDate}}&reportCurrencyCode=GBP&intervalType=period&reportType=program",
+        "options": {},
+        "headerParametersUi": {
+          "parameter": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$node[\"receive payload\"].json.td_tokens.impersonate_access_token}}"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        }
+      },
+      "name": "API 2025 (Paged)1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 2,
+      "position": [
+        400,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const state = $json;\nconst response = $node[\"API 2025 (Paged)1\"].json;\n\nconst items = response.items || [];\nconst total = response.total ?? 0;\n\nconst allItems = (state.allItems || []).concat(items);\n\nconst nextOffset = (state.offset || 0) + (state.limit || 100);\nconst done = items.length === 0 || nextOffset >= total;\n\nreturn [{\n  json: {\n    offset: done ? (state.offset || 0) : nextOffset,\n    limit: state.limit || 100,\n    done,\n    total,\n    allItems\n  }\n}];\n"
+      },
+      "name": "Collect Page (API 2025)1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        592,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.done}}",
+              "value2": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "IF Done (API 2025)1",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        800,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { offset: 0, limit: 100, done: false, allItems: [] } }];"
+      },
+      "name": "Init Pagination (API 2024)1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "name": "Loop (API 2024)1",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        192,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://connect.tradedoubler.com/advertiser/report/statistics?limit={{$json.limit}}&offset={{$json.offset}}&fromDate={{$node[\"yoy data extraction\"].json.prev.fromDate}}&toDate={{$node[\"yoy data extraction\"].json.prev.toDate}}&reportCurrencyCode=GBP&intervalType=period&reportType=program",
+        "options": {},
+        "headerParametersUi": {
+          "parameter": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$node[\"receive payload\"].json.td_tokens.impersonate_access_token}}"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        }
+      },
+      "name": "API 2024 (Paged)1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 2,
+      "position": [
+        400,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const state = $json;\nconst response = $node[\"API 2024 (Paged)1\"].json;\n\nconst items = response.items || [];\nconst total = response.total ?? 0;\n\nconst allItems = (state.allItems || []).concat(items);\n\nconst nextOffset = (state.offset || 0) + (state.limit || 100);\nconst done = items.length === 0 || nextOffset >= total;\n\nreturn [{\n  json: {\n    offset: done ? (state.offset || 0) : nextOffset,\n    limit: state.limit || 100,\n    done,\n    total,\n    allItems\n  }\n}];\n"
+      },
+      "name": "Collect Page (API 2024)1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        592,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.done}}",
+              "value2": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "IF Done (API 2024)1",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        800,
+        192
+      ]
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1216,
+        288
+      ],
+      "name": "Merge1"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1056,
+        496
+      ],
+      "name": "Merge2"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://recipe-dude-both-tension.trycloudflare.com/api/v1/ppt/presentation/generate/async",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{JSON.stringify({\n  content: $json.output,\n  template: \"modern\",\n  export_as: \"pptx\",\n  n_slides: 12,\n  include_title_slide: true,\n  include_table_of_contents: false,\n  language: \"English\",\n  tone: \"default\",\n  verbosity: \"standard\",\n  web_search: false\n})}}",
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "name": "Generate PPTX",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        3856,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://connect.tradedoubler.com/advertiser/report/statistics/events/sources/export?reportCurrencyCode=GBP&fromDate={{$node[\"yoy data extraction\"].json.payload.fromDate}}&toDate={{$node[\"yoy data extraction\"].json.payload.toDate}}&programId={{$node[\"yoy data extraction\"].json.payload.programId}}&lastModified=true&intervalType=period",
+        "options": {},
+        "headerParametersUi": {
+          "parameter": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$node[\"receive payload\"].json.td_tokens.impersonate_access_token}}"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        }
+      },
+      "name": "API Publisher Current",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 2,
+      "position": [
+        800,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://connect.tradedoubler.com/advertiser/report/statistics/events/sources/export?reportCurrencyCode=GBP&fromDate={{$node[\"yoy data extraction\"].json.prev.fromDate}}&toDate={{$node[\"yoy data extraction\"].json.prev.toDate}}&programId={{$node[\"yoy data extraction\"].json.payload.programId}}&lastModified=true&intervalType=period",
+        "options": {},
+        "headerParametersUi": {
+          "parameter": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$node[\"receive payload\"].json.td_tokens.impersonate_access_token}}"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        }
+      },
+      "name": "API Publisher Previous",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 2,
+      "position": [
+        800,
+        624
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// NEW NODE: \"Simplify Data for Microservice\"\n// Place this BEFORE \"prepare api request\" node\n\nconst qbrData = $input.first().json;\n\n// Helper function to truncate long text\nfunction truncate(text, maxLength) {\n  if (!text) return \"\";\n  const str = String(text);\n  if (str.length <= maxLength) return str;\n  return str.substring(0, maxLength) + \"...\";\n}\n\n// Helper: limit array length\nfunction limitArray(arr, max = 5) {\n  if (!Array.isArray(arr)) return [];\n  return arr.slice(0, max);\n}\n\nconst simplifiedData = {\n  // Basic info\n  clientName: qbrData.clientName || \"\",\n  period: qbrData.period || \"\",\n  preparedBy: qbrData.preparedBy || \"\",\n  date: qbrData.date || \"\",\n  market: qbrData.market || \"\",\n\n  // Snapshot metrics (current values only)\n  clicks_recent: qbrData[\"Current Clicks\"] || qbrData.clicks_recent || \"\",\n  sales_recent: qbrData[\"Current Sales\"] || qbrData.sales_recent || \"\",\n  conv_rate_recent: qbrData[\"Current Conv Rate\"] || qbrData.conv_rate_recent || \"\",\n  order_value_recent: qbrData[\"Current Order Value\"] || qbrData.order_value_recent || \"\",\n  aov_recent: qbrData[\"Current AOV\"] || qbrData.aov_recent || \"\",\n  pub_commission_recent: qbrData[\"Current Commission\"] || qbrData.pub_commission_recent || \"\",\n  cpa_recent: qbrData[\"Current CPA\"] || qbrData.cpa_recent || \"\",\n  roi_recent: qbrData[\"Current ROI\"] || qbrData.roi_recent || \"\",\n\n  // YoY percentages only\n  clicks_yoy_pct: qbrData[\"YoY Clicks Change\"] || qbrData.clicks_yoy_pct || \"\",\n  sales_yoy_pct: qbrData[\"YoY Sales Change\"] || qbrData.sales_yoy_pct || \"\",\n  conv_rate_yoy_pct: qbrData[\"YoY Conv Rate Change\"] || qbrData.conv_rate_yoy_pct || \"\",\n  order_value_yoy_pct: qbrData[\"YoY Order Value Change\"] || qbrData.order_value_yoy_pct || \"\",\n  aov_yoy_pct: qbrData[\"YoY AOV Change\"] || qbrData.aov_yoy_pct || \"\",\n  pub_commission_yoy_pct: qbrData[\"YoY Commission Change\"] || qbrData.pub_commission_yoy_pct || \"\",\n  cpa_yoy_pct: qbrData[\"YoY CPA Change\"] || qbrData.cpa_yoy_pct || \"\",\n  roi_yoy_pct: qbrData[\"YoY ROI Change\"] || qbrData.roi_yoy_pct || \"\",\n\n  // Executive summary (short)\n  exec_summary_headline: qbrData.exec_summary_headline || \"\",\n  exec_summary_bullets: limitArray(qbrData.exec_summary_bullets, 5),\n\n  // Traffic/Conversion/Revenue (short)\n  traffic_trends: truncate(qbrData.traffic_trends, 400),\n  conversion_performance: truncate(qbrData.conversion_performance, 400),\n  revenue_economics: truncate(qbrData.revenue_economics, 400),\n\n  // Recommendations (first 4 only)\n  rec_1: qbrData.rec_1 || \"\",\n  rec_2: qbrData.rec_2 || \"\",\n  rec_3: qbrData.rec_3 || \"\",\n  rec_4: qbrData.rec_4 || \"\",\n\n  // Publisher highlights\n  growth_drivers_paragraph: truncate(qbrData.growth_drivers_paragraph, 400),\n  new_partners_paragraph: truncate(qbrData.new_partners_paragraph, 400),\n  declines_paragraph: truncate(qbrData.declines_paragraph, 400),\n  top_performers_paragraph: truncate(qbrData.top_performers_paragraph, 400),\n\n  // Publisher recommendations (first 4 only)\n  pub_rec_1: qbrData.pub_rec_1 || \"\",\n  pub_rec_2: qbrData.pub_rec_2 || \"\",\n  pub_rec_3: qbrData.pub_rec_3 || \"\",\n  pub_rec_4: qbrData.pub_rec_4 || \"\",\n\n  // Visibility highlights\n  brand_snapshot: truncate(qbrData.brand_snapshot, 300),\n  findability_score: qbrData.findability_score || \"\",\n\n  // Visibility recommendations (first 4 only)\n  vis_rec_1: qbrData.vis_rec_1 || \"\",\n  vis_rec_2: qbrData.vis_rec_2 || \"\",\n  vis_rec_3: qbrData.vis_rec_3 || \"\",\n  vis_rec_4: qbrData.vis_rec_4 || \"\",\n\n  // Tables (markdown)\n  yoy_summary_table: qbrData.yoy_summary_table || \"\",\n  top_10_growth_table: qbrData.top_10_growth_table || \"\",\n  top_10_decline_table: qbrData.top_10_decline_table || \"\",\n  top_current_performers_table: qbrData.top_current_performers_table || \"\",\n  segment_overview_table: qbrData.segment_overview_table || \"\"\n};\n\n// Log reduction\nconst originalSize = JSON.stringify(qbrData).length;\nconst newSize = JSON.stringify(simplifiedData).length;\nconst reduction = ((originalSize - newSize) / originalSize * 100).toFixed(1);\nconsole.log(`Payload reduced by ${reduction}%`);\nconsole.log(`Original: ${originalSize} bytes → New: ${newSize} bytes`);\n\nreturn [{ json: simplifiedData }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3616,
+        80
+      ],
+      "name": "reduce payload"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://recipe-dude-both-tension.trycloudflare.com/api/v1/ppt/presentation/generate/async",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"content\": \"={{$json.output}}\",\n  \"template\": \"modern\",\n  \"export_as\": \"pptx\",\n  \"n_slides\": 12,\n  \"include_title_slide\": true,\n  \"include_table_of_contents\": false,\n  \"language\": \"English\",\n  \"tone\": \"default\",\n  \"verbosity\": \"standard\",\n  \"web_search\": false\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4080,
+        80
+      ],
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://drain-insight-therefore-activities.trycloudflare.com/api/v1/ppt/presentation/generate/async",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "content",
+              "value": "={{$json.output}}"
+            },
+            {
+              "name": "template",
+              "value": "custom-641d7236-1235-4459-971e-4cac5111564e"
+            },
+            {
+              "name": "export_as",
+              "value": "pptx"
+            },
+            {
+              "name": "n_slides",
+              "value": "12"
+            },
+            {
+              "name": "include_title_slide",
+              "value": "true"
+            },
+            {
+              "name": "include_table_of_contents",
+              "value": "false"
+            },
+            {
+              "name": "language",
+              "value": "English"
+            },
+            {
+              "name": "tone",
+              "value": "default"
+            },
+            {
+              "name": "verbosity",
+              "value": "standard"
+            },
+            {
+              "name": "web_search",
+              "value": "false"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "name": "Start Async PPTX",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        3344,
+        512
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const programName =\n  $json?.payload?.programName ||\n  $json?.body?.payload?.programName ||\n  $json?.programName ||\n  $json?.clientName ||\n  $json?.program?.name ||\n  \"\";\n\nreturn [{\n  json: {\n    ...$json,\n    programName,\n    clientName: programName\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        48,
+        1088
+      ],
+      "name": "pass dynamic PID"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n    \"success\": true,\n  \"marker\": \"RESPOND_NODE_USED\"\n}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, OPTIONS"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type, Authorization"
+              }
+            ]
+          }
+        }
+      },
+      "name": "Respond to Webhook1",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        3568,
+        512
+      ]
+    }
+  ],
+  "connections": {
+    "Process YoY Data": {
+      "main": [
+        [
+          {
+            "node": "AI Agent: Analyze Performance",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent: Analyze Performance": {
+      "main": [
+        [
+          {
+            "node": "Tag Program Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Publisher QBR Pack1": {
+      "main": [
+        [
+          {
+            "node": "AI Agent: Publisher QBR1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent: Publisher QBR1": {
+      "main": [
+        [
+          {
+            "node": "Tag Publisher Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI GPT-1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent: Analyze Performance",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "AI Agent: Publisher QBR1",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "AI: Generate Visibility Report",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tag Program Output": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tag Publisher Output": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "split data": {
+      "main": [
+        [
+          {
+            "node": "Extract Brand Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Brand Context": {
+      "main": [
+        [
+          {
+            "node": "Generate Search Queries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Search Queries": {
+      "main": [
+        [
+          {
+            "node": "Loop Through Queries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Through Queries": {
+      "main": [
+        [
+          {
+            "node": "aggregate serp data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Serper API Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Serper API Search": {
+      "main": [
+        [
+          {
+            "node": "Parse SERP Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse SERP Results": {
+      "main": [
+        [
+          {
+            "node": "Loop Through Queries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Classify & Score Opportunities": {
+      "main": [
+        [
+          {
+            "node": "AI: Generate Visibility Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI: Generate Visibility Report": {
+      "main": [
+        [
+          {
+            "node": "Tag Visibility Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tag Visibility Output": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Build Final Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "aggregate serp data": {
+      "main": [
+        [
+          {
+            "node": "Validate Market Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Market Data": {
+      "main": [
+        [
+          {
+            "node": "Classify & Score Opportunities",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "receive payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "receive payload": {
+      "main": [
+        [
+          {
+            "node": "pass dynamic PID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "yoy data extraction": {
+      "main": [
+        [
+          {
+            "node": "split data",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Init Pagination (API 2025)1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Init Pagination (API 2024)1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "API Publisher Current",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "API Publisher Previous",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Final Response": {
+      "main": [
+        [
+          {
+            "node": "Start Async PPTX",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Init Pagination (API 2025)1": {
+      "main": [
+        [
+          {
+            "node": "Loop (API 2025)1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop (API 2025)1": {
+      "main": [
+        [],
+        [
+          {
+            "node": "API 2025 (Paged)1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "API 2025 (Paged)1": {
+      "main": [
+        [
+          {
+            "node": "Collect Page (API 2025)1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect Page (API 2025)1": {
+      "main": [
+        [
+          {
+            "node": "IF Done (API 2025)1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Done (API 2025)1": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Loop (API 2025)1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Init Pagination (API 2024)1": {
+      "main": [
+        [
+          {
+            "node": "Loop (API 2024)1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop (API 2024)1": {
+      "main": [
+        [],
+        [
+          {
+            "node": "API 2024 (Paged)1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "API 2024 (Paged)1": {
+      "main": [
+        [
+          {
+            "node": "Collect Page (API 2024)1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect Page (API 2024)1": {
+      "main": [
+        [
+          {
+            "node": "IF Done (API 2024)1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Done (API 2024)1": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 1
+          }
+        ],
+        [
+          {
+            "node": "Loop (API 2024)1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge1": {
+      "main": [
+        [
+          {
+            "node": "Process YoY Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge2": {
+      "main": [
+        [
+          {
+            "node": "Process Publisher QBR Pack1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "API Publisher Current": {
+      "main": [
+        [
+          {
+            "node": "Merge2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "API Publisher Previous": {
+      "main": [
+        [
+          {
+            "node": "Merge2",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Start Async PPTX": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "pass dynamic PID": {
+      "main": [
+        [
+          {
+            "node": "yoy data extraction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {},
+  "tags": [],
+  "active": false
+}

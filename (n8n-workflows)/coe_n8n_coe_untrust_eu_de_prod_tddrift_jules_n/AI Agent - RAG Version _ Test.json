@@ -1,0 +1,305 @@
+{
+  "id": "iUIm38NlloPmf0Hh",
+  "name": "AI Agent - RAG Version / Test",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "onboarding-chat",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1104,
+        400
+      ],
+      "webhookId": "onboarding-chat"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get incoming data\nconst userMessage = $input.item.json.body.message;\nconst conversationHistory = $input.item.json.body.conversationHistory || [];\nconst onboardingData = $input.item.json.body.onboardingData || {};\nconst checklist = $input.item.json.body.checklist || {};\n\n// Detect conversation context\nconst recentMessages = conversationHistory.slice(-3).map(m => m.content).join(' ').toLowerCase();\nconst currentMessage = userMessage.toLowerCase();\nconst allContext = recentMessages + ' ' + currentMessage;\n\n// Determine if this is troubleshooting vs onboarding\nconst isTroubleshooting = currentMessage.match(/why|how|what if|what is|can you explain|not working|error|failed|issue|problem|doesn't work|won't|can't|help/i);\nconst isOnboarding = !isTroubleshooting;\n\n// Detect technical topics for metadata filtering\nlet topicFilter = null;\nlet topicKeywords = [];\n\nif (allContext.includes('gtm') || allContext.includes('tag manager') || allContext.includes('google tag')) {\n  topicFilter = 'gtm';\n  topicKeywords.push('Google Tag Manager', 'GTM', 'tags', 'triggers');\n} else if (allContext.includes('dns') || allContext.includes('cname') || allContext.includes('subdomain')) {\n  topicFilter = 'dns';\n  topicKeywords.push('DNS', 'CNAME', 'subdomain', 'domain records');\n} else if (allContext.includes('tracking') || allContext.includes('script') || allContext.includes('pixel')) {\n  topicFilter = 'tracking';\n  topicKeywords.push('tracking script', 'pixel', 'implementation', 'integration');\n} else if (allContext.includes('test') || allContext.includes('verify') || allContext.includes('check')) {\n  topicFilter = 'testing';\n  topicKeywords.push('testing', 'verification', 'troubleshooting', 'validate');\n} else if (allContext.includes('feed') || allContext.includes('product')) {\n  topicFilter = 'product_feed';\n  topicKeywords.push('product feed', 'XML', 'CSV', 'feed mapping');\n}\n\n// Expand query with technical synonyms for better retrieval\nlet expandedQuery = userMessage;\nconst queryExpansions = {\n  'gtm': 'Google Tag Manager GTM dataLayer',\n  'dns': 'DNS CNAME records configuration',\n  'tracking': 'tracking script implementation pixel',\n  'test': 'testing verification troubleshooting validation',\n  'script': 'tracking script code implementation',\n  'preview': 'GTM preview mode testing',\n  'branded': 'branded tracking subdomain CNAME',\n  'feed': 'product feed XML CSV mapping'\n};\n\nfor (const [short, expanded] of Object.entries(queryExpansions)) {\n  if (currentMessage.includes(short)) {\n    expandedQuery += ' ' + expanded;\n  }\n}\n\n// Add topic keywords if detected\nif (topicKeywords.length > 0) {\n  expandedQuery += ' ' + topicKeywords.join(' ');\n}\n\nreturn {\n  userMessage: userMessage,\n  expandedQuery: expandedQuery,\n  conversationHistory: conversationHistory,\n  onboardingData: onboardingData,\n  checklist: checklist,\n  isTroubleshooting: isTroubleshooting,\n  isOnboarding: isOnboarding,\n  topicFilter: topicFilter,\n  recentContext: allContext\n};"
+      },
+      "name": "Query Preprocessor",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -880,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get preprocessed data\nconst data = $input.item.json;\nconst conversationHistory = data.conversationHistory || [];\nconst onboardingData = data.onboardingData || {};\nconst checklist = data.checklist || {};\nconst isTroubleshooting = data.isTroubleshooting;\n\n// Enhanced system prompt with RAG guidance\nconst systemPrompt = `You are an expert onboarding assistant for Tradedoubler, an affiliate marketing network. Guide clients through technical onboarding in a friendly, professional manner. Only greet the user once at the start of conversation, once the conversation is flowing never repeat words such as Hi, Hello or Hey.\n\nIMPORTANT RAG TOOL USAGE:\n- When the user asks \"why\", \"how\", \"what is\", \"can you explain\" or any troubleshooting question → ALWAYS use the documentation search tool FIRST\n- When discussing GTM, DNS, CNAME, tracking scripts, testing, or technical implementation → USE the documentation tool\n- The tool provides accurate Tradedoubler documentation - trust it over your own knowledge for technical details\n- For simple onboarding flow questions (\"what's next?\", \"I'm ready\") → No need to search, just follow the steps below\n\nCRITICAL: You MUST follow these steps IN ORDER. After collecting information for one step, AUTOMATICALLY move to the next step. Do NOT ask what the user wants to do - guide them through the process step by step.\n\nOnboarding steps:\n1. BRANDED TRACKING: Two subdomains (visit.clientdomain.com and statics.clientdomain.com).\nFIRST: Get client name and company name if you don't have them yet.\nTHEN: IMMEDIATELY (without asking what they want) give this branded tracking paragraph:\n\"To combat the increasing challenges of Browser Privacy settings and Adblockers on tracking technology Tradedoubler has launched Branded Tracking. This solution will mask Tradedoubler tracking scripts under your own domain, preventing them from being disrupted. Branded Tracking also comes with the added benefit of masking publisher click links under your domain as well, creating a more positive user journey for consumers.\nTo set this up, we will need two new subdomains — one for ad serving and one for tracking. You don't need to configure the subdomains on your end; we only require their names so we can register them in our system. Once the domain names are confirmed, I'll provide you with the CNAME DNS records needed to establish the connection.\"\nAFTER: Ask for their website domain.\nOnce the client confirms they are happy with the subdomains, say we have sent the domains to the technical team to integrate.\n\n2. PRODUCT FEED: URLs for CSV/XML product feeds.\n   - Ask for the feed URL\n   - Validate it's accessible\n   - Ask what format (CSV or XML)\n   - Once the feed link is provided, respond EXACTLY like this:\n   \"Perfect! I've received your product feed URL. I'm now connecting it to our AI-powered mapping system. I'll send you an email once it's complete. In the meantime, let's move on to uploading your program assets.\"\n\n3. PROGRAM ASSETS: Logo (350x130), ads (160x600, 300x250, 300x600, 728x90, 928x70), T&Cs\n\n4. OFFICE IP ADDRESSES: IPs to blacklist internal traffic\n\n5. TRACKING SCRIPTS: Once domains are confirmed, provide implementation guidance.\n   Say: \"Perfect! Now that your domains are confirmed, here are your tracking scripts:\n   \n   📄 Implementation File: https://hst.tradedoubler.com/file/393448/implementation.html\n   \n   This file contains:\n   • Landing page script (for all pages)\n   • Confirmation page script (for thank you/order confirmation page)\n   • Test link for verification\n   \n   NEXT STEPS:\n   1. Integrate the scripts into your website following the instructions in the file\n   2. Once integrated, use the test link provided to complete a test transaction\n   3. This will verify that tracking is working correctly\n   \n   Would you like me to walk you through the integration process, or do you have a developer who will handle this?\"\n\n   IMPORTANT: GTM Preview Mode is ONLY for checking that tags fire correctly.\n   You CANNOT validate Tradedoubler tracking in Preview Mode because the test click link will not load inside preview and the pixel will not reach the Tradedoubler servers.\n   \n   Real tracking tests MUST be done on the live site using the official Tradedoubler test link — outside of GTM preview.\n\nIMPORTANT: Once the user confirms they have completed a test sale, say this \"Great! Thanks for testing. I have sent a message through to our technical team to verify if the tracking is live\"\n\nWhen providing tracking code or GTM snippets, do NOT output <script> tags.\nOnly output plain JavaScript inside a normal code block.\nDo not specify a code-block language label such as \"html\" or \"javascript\".\nMandatory parameters are - Order Value, Order Number and Currency. The rest of the parameters in the confirmation page script are optional. Do NOT mention products, unless the client wants to integrate PLT.\n\nUse Preview Mode only to confirm:\n- The confirmation script fires\n- dataLayer variables are populated\n- Tag sequencing is correct\n\nBe warm, ask one question at a time, celebrate progress, and acknowledge information clearly.\n\nCurrent progress:\n- Client: ${onboardingData.clientName || 'Not provided'}\n- Company: ${onboardingData.companyName || 'Not provided'}\n- Completed steps: ${Object.values(checklist).filter(Boolean).length}/6\n\n${isTroubleshooting ? '\\n⚠️ User is asking a technical/troubleshooting question - USE THE DOCUMENTATION TOOL to get accurate information.' : ''}`;\n\n// Build messages array\nconst messages = [\n  ...conversationHistory,\n  { role: 'user', content: data.userMessage }\n];\n\nreturn {\n  messages: messages,\n  systemPrompt: systemPrompt,\n  userMessage: data.userMessage,\n  expandedQuery: data.expandedQuery,\n  onboardingData: onboardingData,\n  checklist: checklist,\n  isTroubleshooting: isTroubleshooting,\n  topicFilter: data.topicFilter,\n  recentContext: data.recentContext\n};"
+      },
+      "name": "Prepare Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -656,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.systemPrompt }}",
+        "options": {
+          "systemMessage": "={{ $json.systemPrompt }}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        -432,
+        400
+      ],
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get AI output and conversation data\nconst input = $input.item.json;\nconst aiResponse = input.output || input.text || \"\";\nconst intermediateSteps = input.intermediateSteps || [];\n\n// Load previous state\nconst previousData = input.onboardingData || {};\nconst messages = input.messages || [];\nconst userMessage = input.userMessage || \"\";\nconst isTroubleshooting = input.isTroubleshooting;\nconst topicFilter = input.topicFilter;\n\nconst userMessageLower = userMessage.trim().toLowerCase();\n\n// Extract onboarding data\nlet data = { ...previousData };\n\n// Extract name\nif (!data.clientName) {\n  const match = userMessageLower.match(/\\b(?:i am|i'm|my name is|this is)\\s+([a-z]+)/i);\n  if (match) {\n    const raw = match[1];\n    data.clientName = raw.charAt(0).toUpperCase() + raw.slice(1);\n  }\n}\n\n// Extract company\nif (data.clientName && !data.companyName) {\n  const match = userMessageLower.match(/\\b(?:work at|from|with|representing)\\s+([a-z0-9&\\s]+)/i);\n  if (match) data.companyName = match[1].trim();\n}\n\n// Extract domain\nconst domainMatch = userMessageLower.match(/([a-z0-9][a-z0-9-]{0,61}[a-z0-9]\\.[a-z]{2,}(?:\\.[a-z]{2,})?)/);\nif (domainMatch) {\n  const clean = domainMatch[0].replace(/^(https?:\\/\\/)?(www\\.)?/, \"\");\n  data.rootDomain = clean;\n  data.visitSubdomain = `visit.${clean}`;\n  data.staticsSubdomain = `statics.${clean}`;\n}\n\n// Extract product feed URL\nconst linkMatch = userMessage.match(/https?:\\/\\/[^\\s]+/);\nif (linkMatch && (userMessageLower.includes(\"feed\") || userMessageLower.includes(\"product\"))) {\n  data.productFeedUrl = linkMatch[0];\n}\n\n// Detect feed format\nif (data.productFeedUrl) {\n  if (data.productFeedUrl.toLowerCase().endsWith(\".xml\")) {\n    data.feedFormat = \"XML\";\n  } else if (data.productFeedUrl.toLowerCase().endsWith(\".csv\")) {\n    data.feedFormat = \"CSV\";\n  }\n}\n\n// Extract IPs\nif (userMessageLower.match(/\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}/)) {\n  const ips = userMessage.match(/\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}/g);\n  data.officeIPs = [...(data.officeIPs || []), ...ips];\n}\n\n// Update checklist\nconst checklist = {\n  intro: !!(data.clientName && data.companyName),\n  brandedTracking: !!(data.rootDomain),\n  productFeed: !!(data.productFeedUrl),\n  assets: false,\n  ipAddresses: !!(data.officeIPs && data.officeIPs.length > 0),\n  trackingScripts: false\n};\n\nconst isComplete = Object.values(checklist).every(v => v);\n\n// === RESPONSE QUALITY VALIDATION ===\nconst warnings = [];\nconst responseLower = aiResponse.toLowerCase();\n\n// Check for common mistakes\nif (responseLower.includes('<script>') || responseLower.includes('</script>')) {\n  warnings.push('Response contains script tags - should be plain JavaScript only');\n}\n\nif (responseLower.match(/preview mode.{0,100}(test|verify|validate)/i) && \n    responseLower.includes('tracking')) {\n  warnings.push('May incorrectly suggest testing tracking in GTM preview mode');\n}\n\nif (responseLower.includes('products') && !userMessageLower.includes('plt')) {\n  warnings.push('Mentioned products parameter unnecessarily');\n}\n\n// === RAG USAGE LOGGING ===\nconst usedRAG = intermediateSteps.some(step => {\n  const toolName = step.action?.tool || '';\n  return toolName.includes('vector') || toolName.includes('supabase') || toolName.includes('search');\n});\n\nconst shouldHaveUsedRAG = isTroubleshooting || \n  userMessageLower.match(/why|how|what is|what if|can you explain|gtm|dns|cname|tracking.*script|test.*tracking/);\n\nconst ragStatus = {\n  used: usedRAG,\n  shouldHaveUsed: shouldHaveUsedRAG,\n  missed: shouldHaveUsedRAG && !usedRAG,\n  topic: topicFilter,\n  query: userMessage\n};\n\n// Log missed RAG opportunities for review\nif (ragStatus.missed) {\n  console.log('⚠️ MISSED RAG OPPORTUNITY:', {\n    query: userMessage,\n    topic: topicFilter,\n    isTroubleshooting: isTroubleshooting\n  });\n}\n\nreturn {\n  response: aiResponse,\n  onboardingData: data,\n  checklist: checklist,\n  isComplete: isComplete,\n  warnings: warnings,\n  ragStatus: ragStatus,\n  debug: {\n    isTroubleshooting: isTroubleshooting,\n    topicFilter: topicFilter,\n    usedRAG: usedRAG\n  }\n};"
+      },
+      "name": "Process & Validate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {\n  response: $json.response,\n  onboardingData: $json.onboardingData,\n  checklist: $json.checklist,\n  isComplete: $json.isComplete,\n  warnings: $json.warnings,\n  debug: $json.debug\n} }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, OPTIONS"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type, Authorization"
+              }
+            ]
+          }
+        }
+      },
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        224,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4o-mini"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -560,
+        608
+      ],
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "L4g2aVcKF4eab59w",
+          "name": "OpenAi account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "Search comprehensive Tradedoubler technical documentation.\n\nUSE THIS TOOL when the user:\n- Asks \"why\", \"how\", \"what is\", \"what if\", \"can you explain\"\n- Mentions: GTM, Google Tag Manager, DNS, CNAME, tracking scripts, pixel, testing, troubleshooting\n- Has implementation questions about branded tracking, product feeds, consent management\n- Reports errors or issues with tracking\n- Asks about specific technical details or configurations\n\nDO NOT use for simple onboarding flow questions like \"what's next\" or \"I'm ready\".\n\nThe tool searches embedded Tradedoubler documentation and returns relevant excerpts. Trust this information over your general knowledge for Tradedoubler-specific technical details.",
+        "tableName": {
+          "__rl": true,
+          "value": "documents",
+          "mode": "list",
+          "cachedResultName": "documents"
+        },
+        "topK": 5,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreSupabase",
+      "typeVersion": 1.3,
+      "position": [
+        -208,
+        608
+      ],
+      "name": "Supabase Vector Store",
+      "credentials": {
+        "supabaseApi": {
+          "id": "b5IZZso0TIYWpJI3",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -368,
+        832
+      ],
+      "name": "Embeddings OpenAI",
+      "credentials": {
+        "openAiApi": {
+          "id": "L4g2aVcKF4eab59w",
+          "name": "OpenAi account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.warnings.length }}",
+              "rightValue": "0",
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Has Warnings?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        208
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Query Preprocessor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query Preprocessor": {
+      "main": [
+        [
+          {
+            "node": "Prepare Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Prompt": {
+      "main": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Process & Validate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process & Validate": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Has Warnings?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Warnings?": {
+      "main": [
+        []
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase Vector Store": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings OpenAI": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Supabase Vector Store",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {},
+  "tags": [],
+  "active": false
+}

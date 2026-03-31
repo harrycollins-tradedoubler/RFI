@@ -1,0 +1,10 @@
+{
+  "host": "https://coe-n8n.coe-untrust-eu-de.prod.tddrift.net",
+  "syncFolder": "(n8n-workflows)",
+  "pollInterval": 3000,
+  "syncInactive": true,
+  "ignoredTags": [
+    "archive"
+  ],
+  "instanceIdentifier": "coe_n8n_coe_untrust_eu_de_prod_tddrift_jules_n"
+}
