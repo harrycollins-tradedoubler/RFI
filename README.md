@@ -125,17 +125,17 @@ python scripts/upload_ready_to_pinecone_openai.py --csv output/spreadsheet/RFI_R
 This creates a standard Pinecone dense index (cosine) and upserts vectors directly, so n8n OpenAI embeddings can query it without model mismatch.
 
 Freshness logic (default):
-- legacy and unknown-year approved rows are kept during upload
-- each row gets metadata fields for `source_year`, `source_kind`, `freshness_tier`, and `retrieval_priority`
-- retrieval can still prefer newer evidence without removing older approved attachments from scope
+- stale rows older than `2024` are dropped during upload
+- attachment rows with unknown year are also dropped
+- each row gets metadata fields for `source_year`, `source_kind`, and `retrieval_priority`
 
 Useful overrides:
 
 ```bash
-# keep all legacy sources explicitly
+# keep all legacy sources
 python scripts/upload_ready_to_pinecone_openai.py --csv output/dataset/unified_ready_dataset.csv --index-name rfi-ready-rag-openai-1024 --namespace __default__ --dimension 1024 --drop-stale-sources none --drop-unknown-year-sources none --min-source-year 2024
 
-# optional stricter mode: only drop stale attachments (keep older QB rows)
+# less strict mode: only drop stale attachments (keep older QB rows)
 python scripts/upload_ready_to_pinecone_openai.py --csv output/dataset/unified_ready_dataset.csv --index-name rfi-ready-rag-openai-1024 --namespace __default__ --dimension 1024 --drop-stale-sources attachments --drop-unknown-year-sources attachments --min-source-year 2024
 ```
 

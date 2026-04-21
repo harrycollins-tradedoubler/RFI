@@ -317,14 +317,14 @@ def main() -> int:
     parser.add_argument(
         "--drop-stale-sources",
         choices=["none", "attachments", "all"],
-        default="none",
-        help="Drop stale rows older than --min-source-year for attachment corpus only, all rows, or none. Default keeps legacy approved evidence and relies on metadata for prioritization.",
+        default="all",
+        help="Drop stale rows older than --min-source-year for attachment corpus only, all rows, or none.",
     )
     parser.add_argument(
         "--drop-unknown-year-sources",
         choices=["none", "attachments", "all"],
-        default="none",
-        help="Drop rows that do not have a detectable source year for attachment corpus only, all rows, or none. Default keeps unknown-year approved evidence.",
+        default="attachments",
+        help="Drop rows that do not have a detectable source year for attachment corpus only, all rows, or none.",
     )
     parser.add_argument(
         "--reset-namespace",

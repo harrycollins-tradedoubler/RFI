@@ -1,0 +1,218 @@
+﻿[SyncManager] statusChange event: QBR v7 - Internal Renderer Pilot.json, status: EXIST_ONLY_REMOTELY, syncMode: undefined
+[SyncManager] Auto-sync skipped (mode: undefined)
+[SyncManager] statusChange event: TEST TEST WORKFLOW.json, status: EXIST_ONLY_REMOTELY, syncMode: undefined
+[SyncManager] Auto-sync skipped (mode: undefined)
+[SyncManager] statusChange event: Ai Agent - Teams.json, status: DELETED_LOCALLY, syncMode: undefined
+[SyncManager] Auto-sync skipped (mode: undefined)
+[SyncManager] statusChange event: My workflow.json, status: DELETED_LOCALLY, syncMode: undefined
+[SyncManager] Auto-sync skipped (mode: undefined)
+[SyncManager] statusChange event: AI Agent v2.json, status: DELETED_LOCALLY, syncMode: undefined
+[SyncManager] Auto-sync skipped (mode: undefined)
+[SyncManager] statusChange event: QBR AGENT- API (DUPE).json, status: DELETED_LOCALLY, syncMode: undefined
+[SyncManager] Auto-sync skipped (mode: undefined)
+[SyncManager] statusChange event: Follow-Up Reminder Scheduler.json, status: DELETED_LOCALLY, syncMode: undefined
+[SyncManager] Auto-sync skipped (mode: undefined)
+[SyncManager] statusChange event: HTTP request.json, status: DELETED_LOCALLY, syncMode: undefined
+[SyncManager] Auto-sync skipped (mode: undefined)
+[SyncManager] statusChange event: Tradedoubler Onboarding (ChatGBT).json, status: EXIST_ONLY_REMOTELY, syncMode: undefined
+[SyncManager] Auto-sync skipped (mode: undefined)
+[SyncManager] statusChange event: Working Agent - Onboarding V1.json, status: EXIST_ONLY_REMOTELY, syncMode: undefined
+[SyncManager] Auto-sync skipped (mode: undefined)
+[SyncManager] statusChange event: Publisher Analysis.json, status: DELETED_LOCALLY, syncMode: undefined
+[SyncManager] Auto-sync skipped (mode: undefined)
+[SyncManager] statusChange event: QBR PowerPoint Workflow.json, status: DELETED_LOCALLY, syncMode: undefined
+[SyncManager] Auto-sync skipped (mode: undefined)
+[SyncManager] statusChange event: QBR PPT Generator (Manual + Excel Table -> PPT).json, status: EXIST_ONLY_REMOTELY, syncMode: undefined
+[SyncManager] Auto-sync skipped (mode: undefined)
+[SyncManager] statusChange event: QBR Gamma Status.json, status: DELETED_LOCALLY, syncMode: undefined
+[SyncManager] Auto-sync skipped (mode: undefined)
+[SyncManager] statusChange event: AI Agent QBR.json, status: DELETED_LOCALLY, syncMode: undefined
+[SyncManager] Auto-sync skipped (mode: undefined)
+[SyncManager] statusChange event: V1 Agent.json, status: EXIST_ONLY_REMOTELY, syncMode: undefined
+[SyncManager] Auto-sync skipped (mode: undefined)
+[SyncManager] statusChange event: RFI Agent.json, status: EXIST_ONLY_REMOTELY, syncMode: undefined
+[SyncManager] Auto-sync skipped (mode: undefined)
+[SyncManager] statusChange event: Onboarding Agent V2.json, status: DELETED_LOCALLY, syncMode: undefined
+[SyncManager] Auto-sync skipped (mode: undefined)
+[SyncManager] statusChange event: RAG AGENT.json, status: EXIST_ONLY_REMOTELY, syncMode: undefined
+[SyncManager] Auto-sync skipped (mode: undefined)
+[SyncManager] statusChange event: My workflow 3.json, status: DELETED_LOCALLY, syncMode: undefined
+[SyncManager] Auto-sync skipped (mode: undefined)
+[SyncManager] statusChange event: QBR v4.json, status: EXIST_ONLY_REMOTELY, syncMode: undefined
+[SyncManager] Auto-sync skipped (mode: undefined)
+[SyncManager] statusChange event: Onboarding Agent V1.json, status: DELETED_LOCALLY, syncMode: undefined
+[SyncManager] Auto-sync skipped (mode: undefined)
+[SyncManager] statusChange event: Onboarding Agent - Self Improving.json, status: DELETED_LOCALLY, syncMode: undefined
+[SyncManager] Auto-sync skipped (mode: undefined)
+[SyncManager] statusChange event: QBR v3.json, status: EXIST_ONLY_REMOTELY, syncMode: undefined
+[SyncManager] Auto-sync skipped (mode: undefined)
+[SyncManager] statusChange event: AI Agent Vector DB.json, status: DELETED_LOCALLY, syncMode: undefined
+[SyncManager] Auto-sync skipped (mode: undefined)
+[SyncManager] statusChange event: Ai Agent V1.json, status: DELETED_LOCALLY, syncMode: undefined
+[SyncManager] Auto-sync skipped (mode: undefined)
+[SyncManager] statusChange event: QBR v6 - (Presenton).json, status: EXIST_ONLY_REMOTELY, syncMode: undefined
+[SyncManager] Auto-sync skipped (mode: undefined)
+[SyncManager] statusChange event: QBR v5 - Gamma.json, status: EXIST_ONLY_REMOTELY, syncMode: undefined
+[SyncManager] Auto-sync skipped (mode: undefined)
+[SyncManager] statusChange event: Populate Vector DB - Tradedoubler Docs.json, status: DELETED_LOCALLY, syncMode: undefined
+[SyncManager] Auto-sync skipped (mode: undefined)
+[SyncManager] statusChange event: QBR V1.json, status: EXIST_ONLY_REMOTELY, syncMode: undefined
+[SyncManager] Auto-sync skipped (mode: undefined)
+[SyncManager] statusChange event: AI based data analysis, data visualization and data report with Ada.im.json, status: DELETED_LOCALLY, syncMode: undefined
+[SyncManager] Auto-sync skipped (mode: undefined)
+[SyncManager] statusChange event: RFI Agent_iF--382n.json, status: EXIST_ONLY_REMOTELY, syncMode: undefined
+[SyncManager] Auto-sync skipped (mode: undefined)
+[SyncManager] statusChange event: AI Agent - RAG Version _ Test.json, status: DELETED_LOCALLY, syncMode: undefined
+[SyncManager] Auto-sync skipped (mode: undefined)
+[SyncManager] statusChange event: Onboarding Agent v3.json, status: DELETED_LOCALLY, syncMode: undefined
+[SyncManager] Auto-sync skipped (mode: undefined)
+[SyncManager] statusChange event: Chunking & MultiVector DB - Superbase.json, status: DELETED_LOCALLY, syncMode: undefined
+[SyncManager] Auto-sync skipped (mode: undefined)
+[SyncManager] statusChange event: QBR Agent + SEO AEO Results.json, status: DELETED_LOCALLY, syncMode: undefined
+[SyncManager] Auto-sync skipped (mode: undefined)
+[SyncManager] statusChange event: QBR v9.json, status: EXIST_ONLY_REMOTELY, syncMode: undefined
+[SyncManager] Auto-sync skipped (mode: undefined)
+[SyncManager] statusChange event: LLM Discovery1 - 20 Query Analysis with Aggregate Summary.json, status: DELETED_LOCALLY, syncMode: undefined
+[SyncManager] Auto-sync skipped (mode: undefined)
+[SyncManager] statusChange event: QBR v10.json, status: EXIST_ONLY_REMOTELY, syncMode: undefined
+[SyncManager] Auto-sync skipped (mode: undefined)
+[SyncManager] statusChange event: QBR v2.json, status: EXIST_ONLY_REMOTELY, syncMode: undefined
+[SyncManager] Auto-sync skipped (mode: undefined)
+[SyncManager] statusChange event: RFI FTS Quality Gate + Route + Upsert.json, status: EXIST_ONLY_REMOTELY, syncMode: undefined
+[SyncManager] Auto-sync skipped (mode: undefined)
+[SyncManager] statusChange event: QBR v4 - Feedback 1-6 (Presenton).json, status: EXIST_ONLY_REMOTELY, syncMode: undefined
+[SyncManager] Auto-sync skipped (mode: undefined)
+[SyncManager] statusChange event: QBR v8.json, status: EXIST_ONLY_REMOTELY, syncMode: undefined
+[SyncManager] Auto-sync skipped (mode: undefined)
+[SyncManager] statusChange event: QBR v3 - API-TESPOWERPOINT.json, status: EXIST_ONLY_REMOTELY, syncMode: undefined
+[SyncManager] Auto-sync skipped (mode: undefined)
+[SyncManager] statusChange event: New Version - Database uploader.json, status: DELETED_LOCALLY, syncMode: undefined
+[SyncManager] Auto-sync skipped (mode: undefined)
+
+[90m┌────────────────────[39m[90m┬───────────────[39m[90m┬────────────────────────────────────────[39m[90m┬──────────────────────────────────────────────────┐[39m
+[90m│[39m[31m Status             [39m[90m│[39m[31m ID            [39m[90m│[39m[31m Name                                   [39m[90m│[39m[31m Local Path                                       [39m[90m│[39m
+[90m├────────────────────[39m[90m┼───────────────[39m[90m┼────────────────────────────────────────[39m[90m┼──────────────────────────────────────────────────┤[39m
+[90m│[39m 💥 CONFLICT        [90m│[39m OxplTFYVkEM_… [90m│[39m RFI Agent                              [90m│[39m RFI Agent.json                                   [90m│[39m
+[90m├────────────────────[39m[90m┼───────────────[39m[90m┼────────────────────────────────────────[39m[90m┼──────────────────────────────────────────────────┤[39m
+[90m│[39m -                  [90m│[39m ENVjL88p3cRz… [90m│[39m QBR PPT Generator (Manual + Excel      [90m│[39m QBR PPT Generator (Manual + Excel Table ->       [90m│[39m
+[90m│[39m EXIST_ONLY_REMOTE… [90m│[39m               [90m│[39m Table -> PPT)                          [90m│[39m PPT).json                                        [90m│[39m
+[90m├────────────────────[39m[90m┼───────────────[39m[90m┼────────────────────────────────────────[39m[90m┼──────────────────────────────────────────────────┤[39m
+[90m│[39m -                  [90m│[39m ctONZ3vi3O4o… [90m│[39m QBR V1                                 [90m│[39m QBR V1.json                                      [90m│[39m
+[90m│[39m EXIST_ONLY_REMOTE… [90m│[39m               [90m│[39m                                        [90m│[39m                                                  [90m│[39m
+[90m├────────────────────[39m[90m┼───────────────[39m[90m┼────────────────────────────────────────[39m[90m┼──────────────────────────────────────────────────┤[39m
+[90m│[39m -                  [90m│[39m qLvyPVRNyp6g… [90m│[39m QBR v10                                [90m│[39m QBR v10.json                                     [90m│[39m
+[90m│[39m EXIST_ONLY_REMOTE… [90m│[39m               [90m│[39m                                        [90m│[39m                                                  [90m│[39m
+[90m├────────────────────[39m[90m┼───────────────[39m[90m┼────────────────────────────────────────[39m[90m┼──────────────────────────────────────────────────┤[39m
+[90m│[39m -                  [90m│[39m sGPNUwFDsA8I… [90m│[39m QBR v2                                 [90m│[39m QBR v2.json                                      [90m│[39m
+[90m│[39m EXIST_ONLY_REMOTE… [90m│[39m               [90m│[39m                                        [90m│[39m                                                  [90m│[39m
+[90m├────────────────────[39m[90m┼───────────────[39m[90m┼────────────────────────────────────────[39m[90m┼──────────────────────────────────────────────────┤[39m
+[90m│[39m -                  [90m│[39m WcJmjOrzPiY7… [90m│[39m QBR v3                                 [90m│[39m QBR v3.json                                      [90m│[39m
+[90m│[39m EXIST_ONLY_REMOTE… [90m│[39m               [90m│[39m                                        [90m│[39m                                                  [90m│[39m
+[90m├────────────────────[39m[90m┼───────────────[39m[90m┼────────────────────────────────────────[39m[90m┼──────────────────────────────────────────────────┤[39m
+[90m│[39m -                  [90m│[39m xhV7c4cvJ71Y… [90m│[39m QBR v3 - API-TESPOWERPOINT             [90m│[39m QBR v3 - API-TESPOWERPOINT.json                  [90m│[39m
+[90m│[39m EXIST_ONLY_REMOTE… [90m│[39m               [90m│[39m                                        [90m│[39m                                                  [90m│[39m
+[90m├────────────────────[39m[90m┼───────────────[39m[90m┼────────────────────────────────────────[39m[90m┼──────────────────────────────────────────────────┤[39m
+[90m│[39m -                  [90m│[39m SmXsBIenUoSH… [90m│[39m QBR v4                                 [90m│[39m QBR v4.json                                      [90m│[39m
+[90m│[39m EXIST_ONLY_REMOTE… [90m│[39m               [90m│[39m                                        [90m│[39m                                                  [90m│[39m
+[90m├────────────────────[39m[90m┼───────────────[39m[90m┼────────────────────────────────────────[39m[90m┼──────────────────────────────────────────────────┤[39m
+[90m│[39m -                  [90m│[39m utQGwhpEdpuJ… [90m│[39m QBR v4 - Feedback 1-6 (Presenton)      [90m│[39m QBR v4 - Feedback 1-6 (Presenton).json           [90m│[39m
+[90m│[39m EXIST_ONLY_REMOTE… [90m│[39m               [90m│[39m                                        [90m│[39m                                                  [90m│[39m
+[90m├────────────────────[39m[90m┼───────────────[39m[90m┼────────────────────────────────────────[39m[90m┼──────────────────────────────────────────────────┤[39m
+[90m│[39m -                  [90m│[39m ZljS8iSdUjEj… [90m│[39m QBR v5 - Gamma                         [90m│[39m QBR v5 - Gamma.json                              [90m│[39m
+[90m│[39m EXIST_ONLY_REMOTE… [90m│[39m               [90m│[39m                                        [90m│[39m                                                  [90m│[39m
+[90m├────────────────────[39m[90m┼───────────────[39m[90m┼────────────────────────────────────────[39m[90m┼──────────────────────────────────────────────────┤[39m
+[90m│[39m -                  [90m│[39m Z1dO4dHn58NT… [90m│[39m QBR v6 - (Presenton)                   [90m│[39m QBR v6 - (Presenton).json                        [90m│[39m
+[90m│[39m EXIST_ONLY_REMOTE… [90m│[39m               [90m│[39m                                        [90m│[39m                                                  [90m│[39m
+[90m├────────────────────[39m[90m┼───────────────[39m[90m┼────────────────────────────────────────[39m[90m┼──────────────────────────────────────────────────┤[39m
+[90m│[39m -                  [90m│[39m 1LJglLp8ruTM… [90m│[39m QBR v7 - Internal Renderer Pilot       [90m│[39m QBR v7 - Internal Renderer Pilot.json            [90m│[39m
+[90m│[39m EXIST_ONLY_REMOTE… [90m│[39m               [90m│[39m                                        [90m│[39m                                                  [90m│[39m
+[90m├────────────────────[39m[90m┼───────────────[39m[90m┼────────────────────────────────────────[39m[90m┼──────────────────────────────────────────────────┤[39m
+[90m│[39m -                  [90m│[39m x-Dd-ltffmtT… [90m│[39m QBR v8                                 [90m│[39m QBR v8.json                                      [90m│[39m
+[90m│[39m EXIST_ONLY_REMOTE… [90m│[39m               [90m│[39m                                        [90m│[39m                                                  [90m│[39m
+[90m├────────────────────[39m[90m┼───────────────[39m[90m┼────────────────────────────────────────[39m[90m┼──────────────────────────────────────────────────┤[39m
+[90m│[39m -                  [90m│[39m nvL35SdH9CE5… [90m│[39m QBR v9                                 [90m│[39m QBR v9.json                                      [90m│[39m
+[90m│[39m EXIST_ONLY_REMOTE… [90m│[39m               [90m│[39m                                        [90m│[39m                                                  [90m│[39m
+[90m├────────────────────[39m[90m┼───────────────[39m[90m┼────────────────────────────────────────[39m[90m┼──────────────────────────────────────────────────┤[39m
+[90m│[39m -                  [90m│[39m RB0DWzP2tgJl… [90m│[39m RAG AGENT                              [90m│[39m RAG AGENT.json                                   [90m│[39m
+[90m│[39m EXIST_ONLY_REMOTE… [90m│[39m               [90m│[39m                                        [90m│[39m                                                  [90m│[39m
+[90m├────────────────────[39m[90m┼───────────────[39m[90m┼────────────────────────────────────────[39m[90m┼──────────────────────────────────────────────────┤[39m
+[90m│[39m -                  [90m│[39m iF--382nPpIQ… [90m│[39m RFI Agent_iF--382n                     [90m│[39m RFI Agent_iF--382n.json                          [90m│[39m
+[90m│[39m EXIST_ONLY_REMOTE… [90m│[39m               [90m│[39m                                        [90m│[39m                                                  [90m│[39m
+[90m├────────────────────[39m[90m┼───────────────[39m[90m┼────────────────────────────────────────[39m[90m┼──────────────────────────────────────────────────┤[39m
+[90m│[39m -                  [90m│[39m u6FhkeR_gOJ-… [90m│[39m RFI FTS Quality Gate + Route + Upsert  [90m│[39m RFI FTS Quality Gate + Route + Upsert.json       [90m│[39m
+[90m│[39m EXIST_ONLY_REMOTE… [90m│[39m               [90m│[39m                                        [90m│[39m                                                  [90m│[39m
+[90m├────────────────────[39m[90m┼───────────────[39m[90m┼────────────────────────────────────────[39m[90m┼──────────────────────────────────────────────────┤[39m
+[90m│[39m -                  [90m│[39m 1YXDOQLo4y99… [90m│[39m TEST TEST WORKFLOW                     [90m│[39m TEST TEST WORKFLOW.json                          [90m│[39m
+[90m│[39m EXIST_ONLY_REMOTE… [90m│[39m               [90m│[39m                                        [90m│[39m                                                  [90m│[39m
+[90m├────────────────────[39m[90m┼───────────────[39m[90m┼────────────────────────────────────────[39m[90m┼──────────────────────────────────────────────────┤[39m
+[90m│[39m -                  [90m│[39m 89KbRgyChu0j… [90m│[39m Tradedoubler Onboarding (ChatGBT)      [90m│[39m Tradedoubler Onboarding (ChatGBT).json           [90m│[39m
+[90m│[39m EXIST_ONLY_REMOTE… [90m│[39m               [90m│[39m                                        [90m│[39m                                                  [90m│[39m
+[90m├────────────────────[39m[90m┼───────────────[39m[90m┼────────────────────────────────────────[39m[90m┼──────────────────────────────────────────────────┤[39m
+[90m│[39m -                  [90m│[39m MTx5oXh7lEII… [90m│[39m V1 Agent                               [90m│[39m V1 Agent.json                                    [90m│[39m
+[90m│[39m EXIST_ONLY_REMOTE… [90m│[39m               [90m│[39m                                        [90m│[39m                                                  [90m│[39m
+[90m├────────────────────[39m[90m┼───────────────[39m[90m┼────────────────────────────────────────[39m[90m┼──────────────────────────────────────────────────┤[39m
+[90m│[39m -                  [90m│[39m 8mWt7YMh0V37… [90m│[39m Working Agent - Onboarding V1          [90m│[39m Working Agent - Onboarding V1.json               [90m│[39m
+[90m│[39m EXIST_ONLY_REMOTE… [90m│[39m               [90m│[39m                                        [90m│[39m                                                  [90m│[39m
+[90m├────────────────────[39m[90m┼───────────────[39m[90m┼────────────────────────────────────────[39m[90m┼──────────────────────────────────────────────────┤[39m
+[90m│[39m ✔ IN_SYNC          [90m│[39m iUIm38NlloPm… [90m│[39m AI Agent - RAG Version _ Test          [90m│[39m AI Agent - RAG Version _ Test.json               [90m│[39m
+[90m├────────────────────[39m[90m┼───────────────[39m[90m┼────────────────────────────────────────[39m[90m┼──────────────────────────────────────────────────┤[39m
+[90m│[39m ✔ IN_SYNC          [90m│[39m 29tUuXenTrKA… [90m│[39m Ai Agent - Teams                       [90m│[39m Ai Agent - Teams.json                            [90m│[39m
+[90m├────────────────────[39m[90m┼───────────────[39m[90m┼────────────────────────────────────────[39m[90m┼──────────────────────────────────────────────────┤[39m
+[90m│[39m ✔ IN_SYNC          [90m│[39m L1uq4bEQEBTE… [90m│[39m AI Agent QBR                           [90m│[39m AI Agent QBR.json                                [90m│[39m
+[90m├────────────────────[39m[90m┼───────────────[39m[90m┼────────────────────────────────────────[39m[90m┼──────────────────────────────────────────────────┤[39m
+[90m│[39m ✔ IN_SYNC          [90m│[39m XfHIsix1A1VN… [90m│[39m Ai Agent V1                            [90m│[39m Ai Agent V1.json                                 [90m│[39m
+[90m├────────────────────[39m[90m┼───────────────[39m[90m┼────────────────────────────────────────[39m[90m┼──────────────────────────────────────────────────┤[39m
+[90m│[39m ✔ IN_SYNC          [90m│[39m 3grmyfPOINdg… [90m│[39m AI Agent v2                            [90m│[39m AI Agent v2.json                                 [90m│[39m
+[90m├────────────────────[39m[90m┼───────────────[39m[90m┼────────────────────────────────────────[39m[90m┼──────────────────────────────────────────────────┤[39m
+[90m│[39m ✔ IN_SYNC          [90m│[39m XIxCbfqqUEhL… [90m│[39m AI Agent Vector DB                     [90m│[39m AI Agent Vector DB.json                          [90m│[39m
+[90m├────────────────────[39m[90m┼───────────────[39m[90m┼────────────────────────────────────────[39m[90m┼──────────────────────────────────────────────────┤[39m
+[90m│[39m ✔ IN_SYNC          [90m│[39m dFisQvfsupdo… [90m│[39m AI based data analysis, data           [90m│[39m AI based data analysis, data visualization and   [90m│[39m
+[90m│[39m                    [90m│[39m               [90m│[39m visualization and data report with     [90m│[39m data report with Ada.im.json                     [90m│[39m
+[90m│[39m                    [90m│[39m               [90m│[39m Ada.im                                 [90m│[39m                                                  [90m│[39m
+[90m├────────────────────[39m[90m┼───────────────[39m[90m┼────────────────────────────────────────[39m[90m┼──────────────────────────────────────────────────┤[39m
+[90m│[39m ✔ IN_SYNC          [90m│[39m jPjeaM6ftrbM… [90m│[39m Chunking & MultiVector DB - Superbase  [90m│[39m Chunking & MultiVector DB - Superbase.json       [90m│[39m
+[90m├────────────────────[39m[90m┼───────────────[39m[90m┼────────────────────────────────────────[39m[90m┼──────────────────────────────────────────────────┤[39m
+[90m│[39m ✔ IN_SYNC          [90m│[39m 4PagoBmYkxmg… [90m│[39m Follow-Up Reminder Scheduler           [90m│[39m Follow-Up Reminder Scheduler.json                [90m│[39m
+[90m├────────────────────[39m[90m┼───────────────[39m[90m┼────────────────────────────────────────[39m[90m┼──────────────────────────────────────────────────┤[39m
+[90m│[39m ✔ IN_SYNC          [90m│[39m 4b7dXKBaSTM1… [90m│[39m HTTP request                           [90m│[39m HTTP request.json                                [90m│[39m
+[90m├────────────────────[39m[90m┼───────────────[39m[90m┼────────────────────────────────────────[39m[90m┼──────────────────────────────────────────────────┤[39m
+[90m│[39m ✔ IN_SYNC          [90m│[39m phVjHHwyhQmB… [90m│[39m LLM Discovery1 - 20 Query Analysis     [90m│[39m LLM Discovery1 - 20 Query Analysis with          [90m│[39m
+[90m│[39m                    [90m│[39m               [90m│[39m with Aggregate Summary                 [90m│[39m Aggregate Summary.json                           [90m│[39m
+[90m├────────────────────[39m[90m┼───────────────[39m[90m┼────────────────────────────────────────[39m[90m┼──────────────────────────────────────────────────┤[39m
+[90m│[39m ✔ IN_SYNC          [90m│[39m 3LbrSdXGQqqx… [90m│[39m My workflow                            [90m│[39m My workflow.json                                 [90m│[39m
+[90m├────────────────────[39m[90m┼───────────────[39m[90m┼────────────────────────────────────────[39m[90m┼──────────────────────────────────────────────────┤[39m
+[90m│[39m ✔ IN_SYNC          [90m│[39m SHnP8I5lI2Qu… [90m│[39m My workflow 3                          [90m│[39m My workflow 3.json                               [90m│[39m
+[90m├────────────────────[39m[90m┼───────────────[39m[90m┼────────────────────────────────────────[39m[90m┼──────────────────────────────────────────────────┤[39m
+[90m│[39m ✔ IN_SYNC          [90m│[39m znvlhh4S6nWv… [90m│[39m New Version - Database uploader        [90m│[39m New Version - Database uploader.json             [90m│[39m
+[90m├────────────────────[39m[90m┼───────────────[39m[90m┼────────────────────────────────────────[39m[90m┼──────────────────────────────────────────────────┤[39m
+[90m│[39m ✔ IN_SYNC          [90m│[39m VfXX81rmChz9… [90m│[39m Onboarding Agent - Self Improving      [90m│[39m Onboarding Agent - Self Improving.json           [90m│[39m
+[90m├────────────────────[39m[90m┼───────────────[39m[90m┼────────────────────────────────────────[39m[90m┼──────────────────────────────────────────────────┤[39m
+[90m│[39m ✔ IN_SYNC          [90m│[39m UWPgOg5ZtF32… [90m│[39m Onboarding Agent V1                    [90m│[39m Onboarding Agent V1.json                         [90m│[39m
+[90m├────────────────────[39m[90m┼───────────────[39m[90m┼────────────────────────────────────────[39m[90m┼──────────────────────────────────────────────────┤[39m
+[90m│[39m ✔ IN_SYNC          [90m│[39m PpSSU6sKsojD… [90m│[39m Onboarding Agent V2                    [90m│[39m Onboarding Agent V2.json                         [90m│[39m
+[90m├────────────────────[39m[90m┼───────────────[39m[90m┼────────────────────────────────────────[39m[90m┼──────────────────────────────────────────────────┤[39m
+[90m│[39m ✔ IN_SYNC          [90m│[39m ieT2uBkYzWfT… [90m│[39m Onboarding Agent v3                    [90m│[39m Onboarding Agent v3.json                         [90m│[39m
+[90m├────────────────────[39m[90m┼───────────────[39m[90m┼────────────────────────────────────────[39m[90m┼──────────────────────────────────────────────────┤[39m
+[90m│[39m ✔ IN_SYNC          [90m│[39m algbo4PdZb4O… [90m│[39m Populate Vector DB - Tradedoubler Docs [90m│[39m Populate Vector DB - Tradedoubler Docs.json      [90m│[39m
+[90m├────────────────────[39m[90m┼───────────────[39m[90m┼────────────────────────────────────────[39m[90m┼──────────────────────────────────────────────────┤[39m
+[90m│[39m ✔ IN_SYNC          [90m│[39m 905kssNEKd4G… [90m│[39m Publisher Analysis                     [90m│[39m Publisher Analysis.json                          [90m│[39m
+[90m├────────────────────[39m[90m┼───────────────[39m[90m┼────────────────────────────────────────[39m[90m┼──────────────────────────────────────────────────┤[39m
+[90m│[39m ✔ IN_SYNC          [90m│[39m nbmq2WHjTHIL… [90m│[39m QBR Agent + SEO AEO Results            [90m│[39m QBR Agent + SEO AEO Results.json                 [90m│[39m
+[90m├────────────────────[39m[90m┼───────────────[39m[90m┼────────────────────────────────────────[39m[90m┼──────────────────────────────────────────────────┤[39m
+[90m│[39m ✔ IN_SYNC          [90m│[39m 4KfurlvW7cDA… [90m│[39m QBR AGENT- API (DUPE)                  [90m│[39m QBR AGENT- API (DUPE).json                       [90m│[39m
+[90m├────────────────────[39m[90m┼───────────────[39m[90m┼────────────────────────────────────────[39m[90m┼──────────────────────────────────────────────────┤[39m
+[90m│[39m ✔ IN_SYNC          [90m│[39m I569v1l2MS3p… [90m│[39m QBR Gamma Status                       [90m│[39m QBR Gamma Status.json                            [90m│[39m
+[90m├────────────────────[39m[90m┼───────────────[39m[90m┼────────────────────────────────────────[39m[90m┼──────────────────────────────────────────────────┤[39m
+[90m│[39m ✔ IN_SYNC          [90m│[39m Ay9cCgahjU9p… [90m│[39m QBR PowerPoint Workflow                [90m│[39m QBR PowerPoint Workflow.json                     [90m│[39m
+[90m└────────────────────[39m[90m┴───────────────[39m[90m┴────────────────────────────────────────[39m[90m┴──────────────────────────────────────────────────┘[39m
+
+Summary:
+  ✔ In Sync: 24
+  ✏️  Modified Locally: 0
+  ☁️  Modified Remotely: 0
+  💥 Conflicts: 1
+  + Only Local: 0
+  - Only Remote: 20
+  🗑️  Deleted: 0
+  Total: 45
+
